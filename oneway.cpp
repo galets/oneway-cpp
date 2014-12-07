@@ -41,10 +41,10 @@ void dbg(const char* annotation, unsigned const char* buf, size_t size)
 
 class CGenKey
 {
-    BIGNUM *bn = NULL;
-    BIO* bio_err = NULL;
-    RSA *rsa = NULL;
-    FILE *f = NULL;
+    BIGNUM *bn;
+    BIO* bio_err;
+    RSA *rsa;
+    FILE *f;
 
     static int genrsa_cb(int p, int n, BN_GENCB *cb)
     {
@@ -65,6 +65,11 @@ class CGenKey
 public:
     CGenKey(char* fileName)
     {
+        bn = NULL;
+        bio_err = NULL;
+        rsa = NULL;
+        f = NULL;
+
         if (fileName)
         {
             f = fopen(fileName, "wt");
@@ -150,13 +155,17 @@ public:
 
 class CConvertToPublicKey
 {
-    FILE *in = NULL;
-    FILE *out = NULL;
-    RSA *rsa = NULL;
+    FILE *in;
+    FILE *out;
+    RSA *rsa;
 
 public:
     CConvertToPublicKey(char * inFileName, char* outFileName)
     {
+        in = NULL;
+        out = NULL;
+        rsa = NULL;
+
         if (inFileName)
         {
             in = fopen(inFileName, "rt");
@@ -212,11 +221,11 @@ public:
 class CEncryptDecryptBase
 {
 protected:
-    FILE *fkey = NULL;
-    FILE *in = NULL;
-    FILE *out = NULL;
-    RSA *rsa = NULL;
-    EVP_CIPHER_CTX *ctx = NULL;
+    FILE *fkey;
+    FILE *in;
+    FILE *out;
+    RSA *rsa;
+    EVP_CIPHER_CTX *ctx;
     const EVP_CIPHER *cipher;
 
     void write(const void* buf, size_t dataSize)
@@ -243,6 +252,13 @@ protected:
 public:
     CEncryptDecryptBase(char *keyFileName, char *inFileName, char* outFileName)
     {
+        fkey = NULL;
+        in = NULL;
+        out = NULL;
+        rsa = NULL;
+        ctx = NULL;
+        cipher = NULL;
+
         fkey = fopen(keyFileName, "rt");
         if (!fkey)
         {
