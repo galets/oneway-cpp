@@ -147,7 +147,7 @@ public:
 
     void printkey()
     {
-        if (!PEM_write_RSAPrivateKey(f == NULL ? stdout : f, rsa, NULL, NULL, 0, NULL, NULL))
+        if (!PEM_write_RSAPrivateKey(f ? f : stdout, rsa, NULL, NULL, 0, NULL, NULL))
         {
             throw "PEM_write_RSAPrivateKey failed";
         }
@@ -525,6 +525,7 @@ int main(int argc, char** argv)
 
         else
         {
+			cerr << "One way encryptor (c) 2014 by galets, https://github.com/galets/oneway-cpp" << endl;
             cerr << "Usage:" << endl;
             cerr << "   oneway [--encrypt|--decrypt|--genkey|--publickey]" << endl;
             cerr << "Example:" << endl;

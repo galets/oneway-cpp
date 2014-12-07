@@ -17,25 +17,31 @@ function compare() {
 
 PRG=./oneway
 
-dd if=/dev/urandom of=/tmp/source bs=100 count=$RANDOM
+for BS in `seq 1 17 105`
+do
 
-$PRG --genkey /tmp/private1.key || fail
-$PRG --genkey > /tmp/private2.key || fail
+	dd if=/dev/urandom of=/tmp/source bs=$BS count=$RANDOM
 
-$PRG --publickey /tmp/private1.key /tmp/public1.key || fail
-$PRG --publickey < /tmp/private2.key > /tmp/public2.key || fail
-$PRG --publickey /tmp/private2.key > /tmp/public2a.key || fail
+	$PRG --genkey /tmp/private1.key || fail
+	$PRG --genkey > /tmp/private2.key || fail
 
-$PRG --encrypt /tmp/public1.key /tmp/source /tmp/dest1 || fail
-$PRG --encrypt /tmp/public2.key /tmp/source > /tmp/dest2 || fail
-$PRG --encrypt /tmp/public2a.key < /tmp/source > /tmp/dest2a || fail
+	$PRG --publickey /tmp/private1.key /tmp/public1.key || fail
+	$PRG --publickey < /tmp/private2.key > /tmp/public2.key || fail
+	$PRG --publickey /tmp/private2.key > /tmp/public2a.key || fail
 
-$PRG --decrypt /tmp/private1.key /tmp/dest1 /tmp/s1 || fail
-$PRG --decrypt /tmp/private2.key < /tmp/dest2 > /tmp/s2 || fail
-$PRG --decrypt /tmp/private2.key /tmp/dest2a > /tmp/s2a || fail
+	$PRG --encrypt /tmp/public1.key /tmp/source /tmp/dest1 || fail
+	$PRG --encrypt /tmp/public2.key /tmp/source > /tmp/dest2 || fail
+	$PRG --encrypt /tmp/public2a.key < /tmp/source > /tmp/dest2a || fail
 
-compare /tmp/source /tmp/s1 
-compare /tmp/source /tmp/s2 
-compare /tmp/source /tmp/s2a
+	$PRG --decrypt /tmp/private1.key /tmp/dest1 /tmp/s1 || fail
+	$PRG --decrypt /tmp/private2.key < /tmp/dest2 > /tmp/s2 || fail
+	$PRG --decrypt /tmp/private2.key /tmp/dest2a > /tmp/s2a || fail
 
+	compare /tmp/source /tmp/s1 
+	compare /tmp/source /tmp/s2 
+	compare /tmp/source /tmp/s2a
 
+done
+
+rm /tmp/private1.key /tmp/private2.key /tmp/public1.key /tmp/public2.key /tmp/public2a.key \
+   /tmp/source /tmp/s1 /tmp/s2 /tmp/s2a /tmp/dest1 /tmp/dest2 /tmp/dest2a
