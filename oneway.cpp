@@ -16,7 +16,9 @@ using namespace std;
 static const char* HEADER = "ASCR";
 static const size_t HEADER_SIZE = 4;
 static const int KEY_SIZE = 4096;
+static const int SYMMETRIC_KEY_SIZE = 32;
 static const int IV_LENGTH = 16;
+static const int BUFFER_SIZE = 4096;
 
 void dbg(const char* annotation, unsigned const char* buf, size_t size)
 {
@@ -241,8 +243,9 @@ protected:
 
     size_t read(void* buf, size_t bufSize)
     {
-        size_t bytes = fread(buf, 1, bufSize, in ? in : stdin);
-        if (ferror(in))
+        FILE *input = in ? in : stdin;
+        size_t bytes = fread(buf, 1, bufSize, input);
+        if (ferror(input))
         {
             throw "File read error";
         }
@@ -336,7 +339,7 @@ public:
 class CEncrypt: public CEncryptDecryptBase
 {
     unsigned char iv[IV_LENGTH];
-    unsigned char key[32];
+    unsigned char key[SYMMETRIC_KEY_SIZE];
 
 public:
     CEncrypt(char *pubKeyFileName, char *inFileName, char* outFileName)
@@ -379,12 +382,12 @@ public:
 
         write(key_encrypted, sizeof(key_encrypted));
 
-        unsigned char inbuf[4096];
+        unsigned char inbuf[BUFFER_SIZE];
         int outlen;
-        unsigned char outbuf[4096];
+        unsigned char outbuf[BUFFER_SIZE + cipher->block_size - 1];
         for(;;)
         {
-            size_t inlen = read(inbuf, sizeof(inbuf));
+            size_t inlen = read(inbuf, BUFFER_SIZE);
             if (!inlen)
             {
                 break;
@@ -438,7 +441,7 @@ public:
         read(key_encrypted, sizeof(key_encrypted));
 
         int key_size = RSA_private_decrypt(sizeof(key_encrypted), key_encrypted, key, rsa, RSA_PKCS1_PADDING);
-        if (key_size != 32)
+        if (key_size != SYMMETRIC_KEY_SIZE)
         {
             throw "RSA_private_decrypt failed";
         }
@@ -448,12 +451,12 @@ public:
             throw "EVP_DecryptInit failed";
         }
 
-        unsigned char inbuf[4096];
+        unsigned char inbuf[BUFFER_SIZE];
         int outlen;
-        unsigned char outbuf[4096];
+        unsigned char outbuf[BUFFER_SIZE + cipher->block_size - 1];
         for(;;)
         {
-            size_t inlen = read(inbuf, sizeof(inbuf));
+            size_t inlen = read(inbuf, BUFFER_SIZE);
             if (!inlen)
             {
                 break;
@@ -479,7 +482,7 @@ int main(int argc, char** argv)
 {
     try
     {
-        if (argc >= 2 && string(argv[1]) == string("--genkey"))
+        if (argc >= 2 && argc <= 3 && string(argv[1]) == string("--genkey"))
         {
             cerr << "Generating new key..." << endl;
 
@@ -490,7 +493,7 @@ int main(int argc, char** argv)
             return 0;
         }
 
-        else if (argc >= 2 && string(argv[1]) == string("--publickey"))
+        else if (argc >= 2 && argc <= 4 && string(argv[1]) == string("--publickey"))
         {
             cerr << "Converting private key to public..." << endl;
 
@@ -500,7 +503,7 @@ int main(int argc, char** argv)
             return 0;
         }
 
-        else if (argc >= 3 && string(argv[1]) == string("--encrypt"))
+        else if (argc >= 3 && argc <= 5 && string(argv[1]) == string("--encrypt"))
         {
             cerr << "Encrypting..." << endl;
 
@@ -510,7 +513,7 @@ int main(int argc, char** argv)
             return 0;
         }
 
-        else if (argc >= 3 && string(argv[1]) == string("--decrypt"))
+        else if (argc >= 3 && argc <= 5 && string(argv[1]) == string("--decrypt"))
         {
             cerr << "Decrypting..." << endl;
 
