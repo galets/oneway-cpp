@@ -36,6 +36,24 @@ Decrypt file using private key:
 	oneway --decrypt private.key encrypted.ascr >plaintext.txt
 	oneway --decrypt private.key <encrypted.ascr >plaintext.txt
 
+Two-stage decryption:
+-------------------------
+
+Where it is necessary to allow 3rd party independently decrypt files without providing private key, it is possible to decrypt files in two stages: first, a symmetric key is extracted, then file gets decrypted using given symmetric key
+
+Extract symmetric key:
+
+	oneway --dump-key private.key encrypted.ascr key.base64
+	oneway --dump-key private.key encrypted.ascr >key.base64
+	oneway --dump-key private.key <encrypted.ascr >key.base64
+
+Decrypt file using symmetric key:
+
+	oneway --decrypt-with-symkey "key-in-base64-format" encrypted.ascr plaintext.txt
+	oneway --decrypt-with-symkey "key-in-base64-format" encrypted.ascr >plaintext.txt
+	oneway --decrypt-with-symkey "key-in-base64-format" <encrypted.ascr >plaintext.txt
+
+Symmetric key from one file would not work on any other file.
 
 Internals:
 -------------------------

@@ -9,7 +9,16 @@
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
 #include <openssl/rand.h>
+#include <openssl/evp.h>
+#include <openssl/buffer.h>
 
+#include <stdint.h>
+
+extern "C" 
+{
+    #include <b64/cencode.h>
+    #include <b64/cdecode.h>
+}
 
 using namespace std;
 
@@ -262,12 +271,15 @@ public:
         ctx = NULL;
         cipher = NULL;
 
-        fkey = fopen(keyFileName, "rt");
-        if (!fkey)
+        if (keyFileName)
         {
-            throw "Could not open key";
+            fkey = fopen(keyFileName, "rt");
+            if (!fkey)
+            {
+                throw "Could not open key";
+            }
         }
-
+        
         if (inFileName)
         {
             in = fopen(inFileName, "rb");
@@ -423,13 +435,16 @@ public:
         fclose(fkey);
         fkey = NULL;
     }
+    
+    CDecrypt(char *inFileName, char* outFileName)
+        : CEncryptDecryptBase(NULL, inFileName, outFileName)
+    {
+    }
 
-    void decrypt()
+private:
+    void read_header(unsigned char iv[])
     {
         char header[HEADER_SIZE];
-        unsigned char iv[IV_LENGTH];
-        unsigned char key[KEY_SIZE / 8 - 11];
-        unsigned char key_encrypted[KEY_SIZE / 8];
 
         read(header, sizeof(header));
         if (0 != memcmp(header, HEADER, HEADER_SIZE))
@@ -437,7 +452,12 @@ public:
             throw "Invalid input file";
         }
 
-        read(iv, sizeof(iv));
+        read(iv, IV_LENGTH);
+    }
+    
+    void read_symmetric_key(unsigned char key[])
+    {
+        unsigned char key_encrypted[KEY_SIZE / 8];
         read(key_encrypted, sizeof(key_encrypted));
 
         int key_size = RSA_private_decrypt(sizeof(key_encrypted), key_encrypted, key, rsa, RSA_PKCS1_PADDING);
@@ -445,7 +465,16 @@ public:
         {
             throw "RSA_private_decrypt failed";
         }
-
+    }
+    
+    void skip_symmetric_key()
+    {
+        unsigned char key_encrypted[KEY_SIZE / 8];
+        read(key_encrypted, sizeof(key_encrypted));
+    }
+    
+    void decrypt_with_symmetric_key(unsigned char iv[], unsigned char key[])
+    {
         if (!EVP_DecryptInit(ctx, cipher, key, iv))
         {
             throw "EVP_DecryptInit failed";
@@ -474,6 +503,55 @@ public:
             throw "EVP_DecryptFinal failed";
         }
         write(outbuf, outlen);
+    }
+
+
+public:
+    void dump()
+    {
+        unsigned char iv[IV_LENGTH];
+        unsigned char key[SYMMETRIC_KEY_SIZE];
+        read_header(iv);
+        read_symmetric_key(key);
+
+        unsigned char keyBase64[SYMMETRIC_KEY_SIZE * 3 / 2 + 2], *keyBase64Ptr = keyBase64;
+        base64_encodestate state;
+        base64_init_encodestate(&state);
+        keyBase64Ptr += base64_encode_block((char*)key, SYMMETRIC_KEY_SIZE, (char*)keyBase64Ptr, &state);
+        keyBase64Ptr += base64_encode_blockend((char*)keyBase64Ptr, &state);
+        write(keyBase64, keyBase64Ptr - keyBase64);
+    }
+
+    void decrypt()
+    {
+        unsigned char iv[IV_LENGTH];
+        unsigned char key[SYMMETRIC_KEY_SIZE];
+        read_header(iv);
+        read_symmetric_key(key);
+        decrypt_with_symmetric_key(iv, key);
+    }
+    
+    void decrypt_symmetric(const char *keyBase64)
+    {
+        unsigned char key[SYMMETRIC_KEY_SIZE + 2];
+        size_t keyBase64Len = strlen(keyBase64);
+        if (keyBase64Len > (SYMMETRIC_KEY_SIZE * 4 / 3 + 2)) 
+        {
+            throw "Invalid length of input key";    
+        }
+        
+        base64_decodestate state;
+        base64_init_decodestate(&state);
+        size_t key_length = (size_t) base64_decode_block(keyBase64, strlen(keyBase64), (char*) key, &state);
+        if (key_length != SYMMETRIC_KEY_SIZE) 
+        {
+            throw "Invalid length of input key";    
+        }
+        
+        unsigned char iv[IV_LENGTH];
+        read_header(iv);
+        skip_symmetric_key();
+        decrypt_with_symmetric_key(iv, key);
     }
 };
 
@@ -523,6 +601,24 @@ int main(int argc, char** argv)
             return 0;
         }
 
+        else if (argc >= 3 && argc <= 5 && string(argv[1]) == string("--dump-key"))
+        {
+            CDecrypt k(argv[2], (argc >= 4) ? argv[3] : NULL, (argc == 5) ? argv[4] : NULL);
+            k.dump();
+
+            return 0;
+        }
+
+        else if (argc >= 3 && argc <= 5 && string(argv[1]) == string("--decrypt-with-symkey"))
+        {
+            cerr << "Decrypting..." << endl;
+
+            CDecrypt k((argc >= 4) ? argv[3] : NULL, (argc == 5) ? argv[4] : NULL);
+            k.decrypt_symmetric(argv[2]);
+
+            return 0;
+        }
+
         else
         {
             cerr << "One way encryptor (c) 2014 by galets, https://github.com/galets/oneway-cpp" << endl;
@@ -533,8 +629,10 @@ int main(int argc, char** argv)
             cerr << "   oneway --publickey [private.key [public.key]]" << endl;
             cerr << "   oneway --encrypt public.key [plaintext.txt [encrypted.ascr]]" << endl;
             cerr << "   oneway --decrypt private.key [encrypted.ascr [plaintext.txt]]" << endl;
+            cerr << "   oneway --dump-key private.key [encrypted.ascr [key.base64]]" << endl;
+            cerr << "   oneway --decrypt-with-symkey symmetric-key-base64 [encrypted.ascr [plaintext.txt]]" << endl;
             cerr << endl;
-            return 0;
+            return 1;
         }
 
     }

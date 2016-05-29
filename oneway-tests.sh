@@ -34,14 +34,28 @@ do
 	$PRG --encrypt /tmp/public2a.key < /tmp/source > /tmp/dest2a || fail
 
 	$PRG --decrypt /tmp/private1.key /tmp/dest1 /tmp/s1 || fail
+	SYMKEY=$($PRG --dump-key /tmp/private1.key /tmp/dest1 || fail)
+	echo "Symmetric key used: $SYMKEY"
+	$PRG --decrypt-with-symkey $SYMKEY /tmp/dest1 /tmp/s1.sk || fail
+
 	$PRG --decrypt /tmp/private2.key < /tmp/dest2 > /tmp/s2 || fail
+	SYMKEY=$($PRG --dump-key /tmp/private2.key /tmp/dest2 || fail)
+	echo "Symmetric key used: $SYMKEY"
+	$PRG --decrypt-with-symkey $SYMKEY /tmp/dest2 /tmp/s2.sk || fail
+
 	$PRG --decrypt /tmp/private2.key /tmp/dest2a > /tmp/s2a || fail
+	SYMKEY=$($PRG --dump-key /tmp/private2.key /tmp/dest2a || fail)
+	echo "Symmetric key used: $SYMKEY"
+	$PRG --decrypt-with-symkey $SYMKEY /tmp/dest2a /tmp/s2a.sk || fail
 
 	compare /tmp/source /tmp/s1 
+	compare /tmp/source /tmp/s1.sk 
 	compare /tmp/source /tmp/s2 
+	compare /tmp/source /tmp/s2.sk
 	compare /tmp/source /tmp/s2a
+	compare /tmp/source /tmp/s2a.sk
 
 done
 
 rm /tmp/private1.key /tmp/private2.key /tmp/public1.key /tmp/public2.key /tmp/public2a.key \
-   /tmp/source /tmp/s1 /tmp/s2 /tmp/s2a /tmp/dest1 /tmp/dest2 /tmp/dest2a
+   /tmp/source /tmp/s1 /tmp/s2 /tmp/s2a /tmp/dest1 /tmp/dest2 /tmp/dest2a /tmp/s1.sk /tmp/s2.sk /tmp/s2a.sk
