@@ -53,11 +53,12 @@ void dbg(const char* annotation, unsigned const char* buf, size_t size)
 class CGenKey
 {
     BIGNUM *bn;
+    BN_GENCB *cb;
     BIO* bio_err;
     RSA *rsa;
     FILE *f;
 
-    static int genrsa_cb(int p, int n, BN_GENCB *cb)
+    static int genrsa_cb(int p, int n, BN_GENCB*)
     {
         char c=0;
 
@@ -67,8 +68,7 @@ class CGenKey
         if (p == 3) c='\n';
         if (c)
         {
-            BIO_write(static_cast<BIO*>(cb->arg), &c, 1);
-            (void)BIO_flush(static_cast<BIO*>(cb->arg));
+            cerr << c;
         }
         return 1;
     }
@@ -77,6 +77,7 @@ public:
     CGenKey(char* fileName)
     {
         bn = NULL;
+        cb = BN_GENCB_new();
         bio_err = NULL;
         rsa = NULL;
         f = NULL;
@@ -96,6 +97,11 @@ public:
         if (bn)
         {
             BN_free(bn);
+        }
+
+        if (cb)
+        {
+            BN_GENCB_free(cb);
         }
 
         if (rsa)
@@ -134,9 +140,6 @@ public:
         }
         BIO_set_fp(bio_err, stderr, BIO_NOCLOSE|BIO_FP_TEXT);
 
-        BN_GENCB cb;
-        BN_GENCB_set(&cb, genrsa_cb, bio_err);
-
         rsa = RSA_new();
         if (!rsa)
         {
@@ -148,7 +151,8 @@ public:
             throw "Not enough entropy";
         }
 
-        if (!RSA_generate_key_ex(rsa, KEY_SIZE, bn, &cb))
+        BN_GENCB_set(cb, &genrsa_cb, NULL);
+        if (!RSA_generate_key_ex(rsa, KEY_SIZE, bn, cb))
         {
             throw "RSA key generation failed";
         }
@@ -304,7 +308,7 @@ public:
             throw "Cipher not supported (AES256)";
         }
 
-        if (cipher->iv_len != IV_LENGTH)
+        if (EVP_CIPHER_iv_length(cipher) != IV_LENGTH)
         {
             throw "Internal error: bad IV length";
         }
@@ -396,7 +400,7 @@ public:
 
         unsigned char inbuf[BUFFER_SIZE];
         int outlen;
-        unsigned char outbuf[BUFFER_SIZE + cipher->block_size - 1];
+        unsigned char outbuf[BUFFER_SIZE + EVP_CIPHER_block_size(cipher) - 1];
         for(;;)
         {
             size_t inlen = read(inbuf, BUFFER_SIZE);
@@ -482,7 +486,7 @@ private:
 
         unsigned char inbuf[BUFFER_SIZE];
         int outlen;
-        unsigned char outbuf[BUFFER_SIZE + cipher->block_size - 1];
+        unsigned char outbuf[BUFFER_SIZE + EVP_CIPHER_block_size(cipher) - 1];
         for(;;)
         {
             size_t inlen = read(inbuf, BUFFER_SIZE);
