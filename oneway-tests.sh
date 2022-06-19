@@ -16,46 +16,47 @@ function compare() {
 }
 
 PRG=./oneway
+TMP=${TMP:-/tmp}
 
 for BS in `seq 1 17 105`
 do
 
-	dd if=/dev/urandom of=/tmp/source bs=$BS count=$RANDOM
+	dd if=/dev/urandom of=$TMP/source bs=$BS count=$RANDOM
 
-	$PRG --genkey /tmp/private1.key || fail
-	$PRG --genkey > /tmp/private2.key || fail
+	$PRG --genkey $TMP/private1.key || fail
+	$PRG --genkey > $TMP/private2.key || fail
 
-	$PRG --publickey /tmp/private1.key /tmp/public1.key || fail
-	$PRG --publickey < /tmp/private2.key > /tmp/public2.key || fail
-	$PRG --publickey /tmp/private2.key > /tmp/public2a.key || fail
+	$PRG --publickey $TMP/private1.key $TMP/public1.key || fail
+	$PRG --publickey < $TMP/private2.key > $TMP/public2.key || fail
+	$PRG --publickey $TMP/private2.key > $TMP/public2a.key || fail
 
-	$PRG --encrypt /tmp/public1.key /tmp/source /tmp/dest1 || fail
-	$PRG --encrypt /tmp/public2.key /tmp/source > /tmp/dest2 || fail
-	$PRG --encrypt /tmp/public2a.key < /tmp/source > /tmp/dest2a || fail
+	$PRG --encrypt $TMP/public1.key $TMP/source $TMP/dest1 || fail
+	$PRG --encrypt $TMP/public2.key $TMP/source > $TMP/dest2 || fail
+	$PRG --encrypt $TMP/public2a.key < $TMP/source > $TMP/dest2a || fail
 
-	$PRG --decrypt /tmp/private1.key /tmp/dest1 /tmp/s1 || fail
-	SYMKEY=$($PRG --dump-key /tmp/private1.key /tmp/dest1 || fail)
+	$PRG --decrypt $TMP/private1.key $TMP/dest1 $TMP/s1 || fail
+	SYMKEY=$($PRG --dump-key $TMP/private1.key $TMP/dest1 || fail)
 	echo "Symmetric key used: $SYMKEY"
-	$PRG --decrypt-with-symkey $SYMKEY /tmp/dest1 /tmp/s1.sk || fail
+	$PRG --decrypt-with-symkey $SYMKEY $TMP/dest1 $TMP/s1.sk || fail
 
-	$PRG --decrypt /tmp/private2.key < /tmp/dest2 > /tmp/s2 || fail
-	SYMKEY=$($PRG --dump-key /tmp/private2.key /tmp/dest2 || fail)
+	$PRG --decrypt $TMP/private2.key < $TMP/dest2 > $TMP/s2 || fail
+	SYMKEY=$($PRG --dump-key $TMP/private2.key $TMP/dest2 || fail)
 	echo "Symmetric key used: $SYMKEY"
-	$PRG --decrypt-with-symkey $SYMKEY /tmp/dest2 /tmp/s2.sk || fail
+	$PRG --decrypt-with-symkey $SYMKEY $TMP/dest2 $TMP/s2.sk || fail
 
-	$PRG --decrypt /tmp/private2.key /tmp/dest2a > /tmp/s2a || fail
-	SYMKEY=$($PRG --dump-key /tmp/private2.key /tmp/dest2a || fail)
+	$PRG --decrypt $TMP/private2.key $TMP/dest2a > $TMP/s2a || fail
+	SYMKEY=$($PRG --dump-key $TMP/private2.key $TMP/dest2a || fail)
 	echo "Symmetric key used: $SYMKEY"
-	$PRG --decrypt-with-symkey $SYMKEY /tmp/dest2a /tmp/s2a.sk || fail
+	$PRG --decrypt-with-symkey $SYMKEY $TMP/dest2a $TMP/s2a.sk || fail
 
-	compare /tmp/source /tmp/s1 
-	compare /tmp/source /tmp/s1.sk 
-	compare /tmp/source /tmp/s2 
-	compare /tmp/source /tmp/s2.sk
-	compare /tmp/source /tmp/s2a
-	compare /tmp/source /tmp/s2a.sk
+	compare $TMP/source $TMP/s1 
+	compare $TMP/source $TMP/s1.sk 
+	compare $TMP/source $TMP/s2 
+	compare $TMP/source $TMP/s2.sk
+	compare $TMP/source $TMP/s2a
+	compare $TMP/source $TMP/s2a.sk
 
 done
 
-rm /tmp/private1.key /tmp/private2.key /tmp/public1.key /tmp/public2.key /tmp/public2a.key \
-   /tmp/source /tmp/s1 /tmp/s2 /tmp/s2a /tmp/dest1 /tmp/dest2 /tmp/dest2a /tmp/s1.sk /tmp/s2.sk /tmp/s2a.sk
+rm $TMP/private1.key $TMP/private2.key $TMP/public1.key $TMP/public2.key $TMP/public2a.key \
+   $TMP/source $TMP/s1 $TMP/s2 $TMP/s2a $TMP/dest1 $TMP/dest2 $TMP/dest2a $TMP/s1.sk $TMP/s2.sk $TMP/s2a.sk

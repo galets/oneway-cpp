@@ -14,12 +14,6 @@
 
 #include <stdint.h>
 
-extern "C" 
-{
-    #include <b64/cencode.h>
-    #include <b64/cdecode.h>
-}
-
 using namespace std;
 
 static const char* HEADER = "ASCR";
@@ -28,6 +22,7 @@ static const int KEY_SIZE = 4096;
 static const int SYMMETRIC_KEY_SIZE = 32;
 static const int IV_LENGTH = 16;
 static const int BUFFER_SIZE = 4096;
+static const size_t AES256_CBC_BLOCKSIZE = 32;
 
 void dbg(const char* annotation, unsigned const char* buf, size_t size)
 {
@@ -400,7 +395,7 @@ public:
 
         unsigned char inbuf[BUFFER_SIZE];
         int outlen;
-        unsigned char outbuf[BUFFER_SIZE + EVP_CIPHER_block_size(cipher) - 1];
+        unsigned char outbuf[BUFFER_SIZE + AES256_CBC_BLOCKSIZE - 1];
         for(;;)
         {
             size_t inlen = read(inbuf, BUFFER_SIZE);
@@ -486,7 +481,7 @@ private:
 
         unsigned char inbuf[BUFFER_SIZE];
         int outlen;
-        unsigned char outbuf[BUFFER_SIZE + EVP_CIPHER_block_size(cipher) - 1];
+        unsigned char outbuf[BUFFER_SIZE + AES256_CBC_BLOCKSIZE - 1];
         for(;;)
         {
             size_t inlen = read(inbuf, BUFFER_SIZE);
@@ -518,12 +513,14 @@ public:
         read_header(iv);
         read_symmetric_key(key);
 
-        unsigned char keyBase64[SYMMETRIC_KEY_SIZE * 3 / 2 + 2], *keyBase64Ptr = keyBase64;
-        base64_encodestate state;
-        base64_init_encodestate(&state);
-        keyBase64Ptr += base64_encode_block((char*)key, SYMMETRIC_KEY_SIZE, (char*)keyBase64Ptr, &state);
-        keyBase64Ptr += base64_encode_blockend((char*)keyBase64Ptr, &state);
-        write(keyBase64, keyBase64Ptr - keyBase64);
+        unsigned char keyBase64[SYMMETRIC_KEY_SIZE * 3 / 2 + 2];
+        int size = EVP_EncodeBlock(keyBase64, key, SYMMETRIC_KEY_SIZE);
+        if (size < 0) 
+        {
+            throw "Base64 encoding failed";    
+        }
+
+        write(keyBase64, size);
     }
 
     void decrypt()
@@ -543,12 +540,17 @@ public:
         {
             throw "Invalid length of input key";    
         }
-        
-        base64_decodestate state;
-        base64_init_decodestate(&state);
-        size_t key_length = (size_t) base64_decode_block(keyBase64, strlen(keyBase64), (char*) key, &state);
+
+        size_t key_length = (size_t) EVP_DecodeBlock(key, reinterpret_cast<const unsigned char *>(keyBase64), strlen(keyBase64));
+        if (key_length == SYMMETRIC_KEY_SIZE + 1)
+        {
+            // key was padded
+            --key_length;
+        }
+
         if (key_length != SYMMETRIC_KEY_SIZE) 
         {
+            std::cerr << keyBase64 << " " << key_length << ":" << (SYMMETRIC_KEY_SIZE) << std::endl;
             throw "Invalid length of input key";    
         }
         
