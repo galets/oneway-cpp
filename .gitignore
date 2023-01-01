@@ -1,13 +1,16 @@
 .deps
+.vscode
 *.cbp
 *.depend
 *.layout
 *.log
 *.o
+*.tar.gz
 *~
 aclocal.m4
 autom4te.cache
 bin
+config.h
 config.status
 depend
 Makefile
@@ -15,5 +18,3 @@ obj
 oneway
 oneway.cbp
 stamp-h1
-config.h
-*.tar.gz
