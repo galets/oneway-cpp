@@ -1,22 +1,22 @@
-#include <stdio.h>
-#include <string.h>
-
+#include <fstream>
 #include <iostream>
+#include <memory>
 
-#include <openssl/bio.h>
-#include <openssl/err.h>
-#include <openssl/bn.h>
-#include <openssl/rsa.h>
-#include <openssl/pem.h>
-#include <openssl/rand.h>
-#include <openssl/evp.h>
-#include <openssl/buffer.h>
+#include <cryptopp/aes.h>
+#include <cryptopp/base64.h>
+#include <cryptopp/cryptlib.h>
+#include <cryptopp/filters.h>
+#include <cryptopp/files.h>
+#include <cryptopp/modes.h>
+#include <cryptopp/osrng.h>
+#include <cryptopp/pem.h>
+#include <cryptopp/rsa.h>
 
-#include <stdint.h>
+#include "config.h"
 
 using namespace std;
 
-static const char* HEADER = "ASCR";
+static const char *HEADER = "ASCR";
 static const size_t HEADER_SIZE = 4;
 static const int KEY_SIZE = 4096;
 static const int SYMMETRIC_KEY_SIZE = 32;
@@ -24,7 +24,7 @@ static const int IV_LENGTH = 16;
 static const int BUFFER_SIZE = 4096;
 static const size_t AES256_CBC_BLOCKSIZE = 32;
 
-void dbg(const char* annotation, unsigned const char* buf, size_t size)
+void dbg(const char *annotation, unsigned const char *buf, size_t size)
 {
 #ifdef _DEBUG
     cerr << annotation << ":";
@@ -34,535 +34,299 @@ void dbg(const char* annotation, unsigned const char* buf, size_t size)
         return;
     }
 
-    for (size_t i=0; i<size; ++i)
+    for (size_t i = 0; i < size; ++i)
     {
-        char buffer [10];
+        char buffer[10];
         sprintf(buffer, " %02X", buf[i]);
         cerr << buffer;
     }
     cerr << endl;
 #endif
+}
 
+CryptoPP::AutoSeededRandomPool prng;
+
+template <typename T>
+struct Noop
+{
+    void operator()(T *p) const
+    {
+    }
+};
+
+std::shared_ptr<std::ostream> openOut(const char *name)
+{
+    if (nullptr == name)
+    {
+        return std::shared_ptr<std::ostream>(&std::cout, Noop<std::ostream>());
+    }
+    return std::shared_ptr<std::ostream>(new std::ofstream(name, std::ios_base::binary));
+}
+
+std::shared_ptr<std::istream> openIn(const char *name)
+{
+    if (nullptr == name)
+    {
+        return std::shared_ptr<std::istream>(&std::cin, Noop<std::istream>());
+    }
+    return std::shared_ptr<std::istream>(new std::ifstream(name, std::ios_base::binary));
+}
+
+void write(std::ostream *stream, const void *data, size_t size)
+{
+    stream->write(reinterpret_cast<const char *>(data), size);
+    if (stream->bad())
+    {
+        throw std::runtime_error("Failed to write data to stream");
+    }
+}
+
+size_t read(std::istream *stream, void *buffer, size_t bufferSize)
+{
+    stream->read(reinterpret_cast<char *>(buffer), bufferSize);
+    if (stream->bad())
+    {
+        throw std::runtime_error("Failed to read data from stream");
+    }
+    return stream->gcount();
+}
+
+void readExact(std::istream *stream, void *buffer, size_t bufferSize)
+{
+    size_t size = read(stream, buffer, bufferSize);
+    if (size != bufferSize)
+    {
+        throw std::runtime_error("Input file ended prematurely");
+    }
+}
+
+template <typename T>
+T loadKey(const char *fileName)
+{
+    T key;
+    auto in = openIn(fileName);
+    CryptoPP::FileSource source(*in.get(), true);
+    CryptoPP::PEM_Load(source, key);
+    return key;
+}
+
+template <typename T>
+void storeKey(T &key, const char *fileName)
+{
+    auto out = openOut(fileName);
+    CryptoPP::FileSink fs(*out.get());
+    CryptoPP::PEM_Save(fs, key);
 }
 
 class CGenKey
 {
-    BIGNUM *bn;
-    BN_GENCB *cb;
-    BIO* bio_err;
-    RSA *rsa;
-    FILE *f;
-
-    static int genrsa_cb(int p, int n, BN_GENCB*)
-    {
-        char c=0;
-
-        if (p == 0) c='.';
-        if (p == 1) c='+';
-        if (p == 2) c='*';
-        if (p == 3) c='\n';
-        if (c)
-        {
-            cerr << c;
-        }
-        return 1;
-    }
+    CryptoPP::RSA::PrivateKey rsaPrivate;
+    const char *fileName;
 
 public:
-    CGenKey(char* fileName)
-    {
-        bn = NULL;
-        cb = BN_GENCB_new();
-        bio_err = NULL;
-        rsa = NULL;
-        f = NULL;
-
-        if (fileName)
-        {
-            f = fopen(fileName, "wt");
-            if (!f)
-            {
-                throw "Output file cannot be opened";
-            }
-        }
-    }
-
-    ~CGenKey()
-    {
-        if (bn)
-        {
-            BN_free(bn);
-        }
-
-        if (cb)
-        {
-            BN_GENCB_free(cb);
-        }
-
-        if (rsa)
-        {
-            RSA_free(rsa);
-        }
-
-        if (bio_err)
-        {
-            BIO_free(bio_err);
-        }
-
-        if (f)
-        {
-            fclose(f);
-        }
-    }
+    CGenKey(char *fileName) : fileName(fileName) {}
 
     void genkey()
     {
-        bn = BN_new();
-        if (!bn)
-        {
-            throw "BIGNUM cannot be created";
-        }
-
-        if (!BN_set_word(bn, RSA_F4))
-        {
-            throw "BN_set_word failed";
-        }
-
-        bio_err = BIO_new(BIO_s_file());
-        if (bio_err == NULL)
-        {
-            throw "BIO_new failed";
-        }
-        BIO_set_fp(bio_err, stderr, BIO_NOCLOSE|BIO_FP_TEXT);
-
-        rsa = RSA_new();
-        if (!rsa)
-        {
-            throw "RSA cannot be created";
-        }
-
-        if (!RAND_status())
-        {
-            throw "Not enough entropy";
-        }
-
-        BN_GENCB_set(cb, &genrsa_cb, NULL);
-        if (!RSA_generate_key_ex(rsa, KEY_SIZE, bn, cb))
-        {
-            throw "RSA key generation failed";
-        }
+        rsaPrivate.GenerateRandomWithKeySize(prng, KEY_SIZE);
     }
 
     void printkey()
     {
-        if (!PEM_write_RSAPrivateKey(f ? f : stdout, rsa, NULL, NULL, 0, NULL, NULL))
-        {
-            throw "PEM_write_RSAPrivateKey failed";
-        }
+        storeKey(rsaPrivate, fileName);
     }
 };
-
 
 class CConvertToPublicKey
 {
-    FILE *in;
-    FILE *out;
-    RSA *rsa;
+    const char *in, *out;
 
 public:
-    CConvertToPublicKey(char * inFileName, char* outFileName)
-    {
-        in = NULL;
-        out = NULL;
-        rsa = NULL;
-
-        if (inFileName)
-        {
-            in = fopen(inFileName, "rt");
-            if (!in)
-            {
-                throw "Input file cannot be opened";
-            }
-        }
-
-        if (outFileName)
-        {
-            out = fopen(outFileName, "wt");
-            if (!out)
-            {
-                throw "Output file cannot be opened";
-            }
-        }
-    }
-
-    ~CConvertToPublicKey()
-    {
-        if (rsa)
-        {
-            RSA_free(rsa);
-        }
-
-        if (in)
-        {
-            fclose(in);
-        }
-
-        if (out)
-        {
-            fclose(out);
-        }
-    }
+    CConvertToPublicKey(char *inFileName, char *outFileName) : in(inFileName), out(outFileName) {}
 
     void convert()
     {
-        rsa = PEM_read_RSAPrivateKey(in ? in : stdin, NULL, NULL, NULL);
-        if (!rsa)
-        {
-            throw "Failed to read private key";
-        }
-
-        if (!PEM_write_RSAPublicKey(out ? out : stdout, rsa))
-        {
-            throw "Failed to write public key";
-        }
+        auto privKey = loadKey<CryptoPP::RSA::PrivateKey>(in);
+        CryptoPP::RSA::PublicKey pubKey(privKey);
+        storeKey(pubKey, out);
     }
 };
 
-class CEncryptDecryptBase
-{
-protected:
-    FILE *fkey;
-    FILE *in;
-    FILE *out;
-    RSA *rsa;
-    EVP_CIPHER_CTX *ctx;
-    const EVP_CIPHER *cipher;
-
-    void write(const void* buf, size_t dataSize)
-    {
-        if (dataSize)
-        {
-            if (!fwrite(buf, dataSize, 1, out ? out : stdout))
-            {
-                throw "File write error";
-            }
-        }
-    }
-
-    size_t read(void* buf, size_t bufSize)
-    {
-        FILE *input = in ? in : stdin;
-        size_t bytes = fread(buf, 1, bufSize, input);
-        if (ferror(input))
-        {
-            throw "File read error";
-        }
-        return bytes;
-    }
-
-public:
-    CEncryptDecryptBase(char *keyFileName, char *inFileName, char* outFileName)
-    {
-        fkey = NULL;
-        in = NULL;
-        out = NULL;
-        rsa = NULL;
-        ctx = NULL;
-        cipher = NULL;
-
-        if (keyFileName)
-        {
-            fkey = fopen(keyFileName, "rt");
-            if (!fkey)
-            {
-                throw "Could not open key";
-            }
-        }
-        
-        if (inFileName)
-        {
-            in = fopen(inFileName, "rb");
-            if (!in)
-            {
-                throw "Input file cannot be opened";
-            }
-        }
-
-        if (outFileName)
-        {
-            out = fopen(outFileName, "wb");
-            if (!out)
-            {
-                throw "Output file cannot be opened";
-            }
-        }
-
-        cipher = EVP_aes_256_cbc();
-        if (!cipher)
-        {
-            throw "Cipher not supported (AES256)";
-        }
-
-        if (EVP_CIPHER_iv_length(cipher) != IV_LENGTH)
-        {
-            throw "Internal error: bad IV length";
-        }
-
-        ctx = EVP_CIPHER_CTX_new();
-        if (!ctx)
-        {
-            throw "EVP_CIPHER_CTX_new failed";
-        }
-
-        EVP_CIPHER_CTX_init(ctx);
-    }
-
-    ~CEncryptDecryptBase()
-    {
-        if (rsa)
-        {
-            RSA_free(rsa);
-        }
-
-        if (ctx)
-        {
-            EVP_CIPHER_CTX_cleanup(ctx);
-            EVP_CIPHER_CTX_free(ctx);
-        }
-
-        if (fkey)
-        {
-            fclose(fkey);
-        }
-
-        if (in)
-        {
-            fclose(in);
-        }
-
-        if (out)
-        {
-            fclose(out);
-        }
-    }
-};
-
-class CEncrypt: public CEncryptDecryptBase
+class CEncrypt
 {
     unsigned char iv[IV_LENGTH];
     unsigned char key[SYMMETRIC_KEY_SIZE];
+    const char *pubKeyFileName, *inFileName, *outFileName;
 
 public:
-    CEncrypt(char *pubKeyFileName, char *inFileName, char* outFileName)
-        : CEncryptDecryptBase(pubKeyFileName, inFileName, outFileName)
+    CEncrypt(char *pubKeyFileName, char *inFileName, char *outFileName) : pubKeyFileName(pubKeyFileName), inFileName(inFileName), outFileName(outFileName)
     {
-        rsa = PEM_read_RSAPublicKey(fkey, NULL, NULL, NULL);
-        if (!rsa)
-        {
-            throw "Could not read public key";
-        }
-
-        fclose(fkey);
-        fkey = NULL;
-
-        RAND_bytes(iv, sizeof(iv));
-        RAND_bytes(key, sizeof(key));
+        prng.GenerateBlock(iv, IV_LENGTH);
+        prng.GenerateBlock(key, SYMMETRIC_KEY_SIZE);
     }
 
     void encrypt()
     {
-        if (!EVP_EncryptInit(ctx, cipher, key, iv))
+        auto publicKey = loadKey<CryptoPP::RSA::PublicKey>(pubKeyFileName);
+        auto keySize = publicKey.GetModulus().BitCount();
+        if (keySize != KEY_SIZE)
         {
-            throw "EVP_EncryptInit failed";
+            throw std::runtime_error(std::string("Invalid key size: " + keySize));
         }
 
-        write(HEADER, HEADER_SIZE);
-
-        write(iv, sizeof(iv));
-
+        CryptoPP::RSAES_PKCS1v15_Encryptor publicKeyEncryptor(publicKey);
+        size_t ciphertextSize = publicKeyEncryptor.CiphertextLength(SYMMETRIC_KEY_SIZE);
+        if (ciphertextSize > KEY_SIZE / 8)
+        {
+            throw std::runtime_error(std::string("Internal error, ciphertext would be too long: ", ciphertextSize));
+        }
         unsigned char key_encrypted[KEY_SIZE / 8];
-        if (RSA_size(rsa) != sizeof(key_encrypted))
+        publicKeyEncryptor.Encrypt(prng, key, SYMMETRIC_KEY_SIZE, key_encrypted);
+
+        CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption symmetricEncryptor;
+        symmetricEncryptor.SetKeyWithIV(key, SYMMETRIC_KEY_SIZE, iv, IV_LENGTH);
+
+        auto is = openIn(inFileName);
+        auto os = openOut(outFileName);
+
+        write(os.get(), HEADER, HEADER_SIZE);
+        write(os.get(), iv, sizeof(iv));
+        write(os.get(), key_encrypted, sizeof(key_encrypted));
+
+        std::array<uint8_t, BUFFER_SIZE> buffer;
+        CryptoPP::StreamTransformationFilter stf(symmetricEncryptor, new CryptoPP::FileSink(*os), CryptoPP::BlockPaddingSchemeDef::PKCS_PADDING);
+        while (size_t bytes = read(is.get(), buffer.data(), buffer.size()))
         {
-            throw "Invalid key size";
+            stf.Put(buffer.data(), bytes);
         }
-
-        if (!RSA_public_encrypt(sizeof(key), key, key_encrypted, rsa, RSA_PKCS1_PADDING))
-        {
-            throw "RSA_public_encrypt failed";
-        }
-
-        write(key_encrypted, sizeof(key_encrypted));
-
-        unsigned char inbuf[BUFFER_SIZE];
-        int outlen;
-        unsigned char outbuf[BUFFER_SIZE + AES256_CBC_BLOCKSIZE - 1];
-        for(;;)
-        {
-            size_t inlen = read(inbuf, BUFFER_SIZE);
-            if (!inlen)
-            {
-                break;
-            }
-
-            if(!EVP_EncryptUpdate(ctx, outbuf, &outlen, inbuf, inlen))
-            {
-                throw "EVP_EncryptUpdate failed";
-            }
-            write(outbuf, outlen);
-        }
-
-        if(!EVP_EncryptFinal(ctx, outbuf, &outlen))
-        {
-            throw "EVP_EncryptFinal failed";
-        }
-        write(outbuf, outlen);
+        stf.MessageEnd();
     }
 };
 
-class CDecrypt: public CEncryptDecryptBase
+class CDecrypt
 {
-public:
-    CDecrypt(char *pubKeyFileName, char *inFileName, char* outFileName)
-        : CEncryptDecryptBase(pubKeyFileName, inFileName, outFileName)
-    {
-        rsa = PEM_read_RSAPrivateKey(fkey, NULL, NULL, NULL);
-        if (!rsa)
-        {
-            throw "Could not read private key";
-        }
+    const char *privKeyName, *inFileName, *outFileName;
 
-        fclose(fkey);
-        fkey = NULL;
-    }
-    
-    CDecrypt(char *inFileName, char* outFileName)
-        : CEncryptDecryptBase(NULL, inFileName, outFileName)
-    {
-    }
+public:
+    CDecrypt(char *privKeyName, char *inFileName, char *outFileName) : privKeyName(privKeyName), inFileName(inFileName), outFileName(outFileName) {}
 
 private:
-    void read_header(unsigned char iv[])
+    void read_header(std::istream *is, unsigned char iv[])
     {
-        char header[HEADER_SIZE];
-
-        read(header, sizeof(header));
-        if (0 != memcmp(header, HEADER, HEADER_SIZE))
-        {
-            throw "Invalid input file";
-        }
-
-        read(iv, IV_LENGTH);
+        char header[HEADER_SIZE] = {0};
+        readExact(is, header, sizeof(header));
+        readExact(is, iv, IV_LENGTH);
     }
-    
-    void read_symmetric_key(unsigned char key[])
+
+    void read_symmetric_key(std::istream *is, unsigned char key[])
     {
         unsigned char key_encrypted[KEY_SIZE / 8];
-        read(key_encrypted, sizeof(key_encrypted));
+        readExact(is, key_encrypted, sizeof(key_encrypted));
 
-        int key_size = RSA_private_decrypt(sizeof(key_encrypted), key_encrypted, key, rsa, RSA_PKCS1_PADDING);
-        if (key_size != SYMMETRIC_KEY_SIZE)
+        auto privateKey = loadKey<CryptoPP::RSA::PrivateKey>(privKeyName);
+        auto keySize = privateKey.GetModulus().BitCount();
+        if (keySize != KEY_SIZE)
         {
-            throw "RSA_private_decrypt failed";
+            throw std::runtime_error(std::string("Invalid key size: " + keySize));
         }
+
+        CryptoPP::RSAES_PKCS1v15_Decryptor decryptor(privateKey);
+        if (decryptor.FixedMaxPlaintextLength() > sizeof(key_encrypted))
+        {
+            throw std::runtime_error("Invalid decryption parameters");
+        }
+        decryptor.Decrypt(prng, key_encrypted, sizeof(key_encrypted), key);
     }
-    
-    void skip_symmetric_key()
+
+    void skip_symmetric_key(std::istream *is)
     {
         unsigned char key_encrypted[KEY_SIZE / 8];
-        read(key_encrypted, sizeof(key_encrypted));
+        readExact(is, key_encrypted, sizeof(key_encrypted));
     }
-    
-    void decrypt_with_symmetric_key(unsigned char iv[], unsigned char key[])
+
+    void decrypt_with_symmetric_key(std::istream *is, std::ostream *os, unsigned char iv[], unsigned char key[])
     {
-        if (!EVP_DecryptInit(ctx, cipher, key, iv))
-        {
-            throw "EVP_DecryptInit failed";
-        }
+        CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption symmetricDecryptor;
+        symmetricDecryptor.SetKeyWithIV(key, SYMMETRIC_KEY_SIZE, iv, IV_LENGTH);
 
-        unsigned char inbuf[BUFFER_SIZE];
-        int outlen;
-        unsigned char outbuf[BUFFER_SIZE + AES256_CBC_BLOCKSIZE - 1];
-        for(;;)
-        {
-            size_t inlen = read(inbuf, BUFFER_SIZE);
-            if (!inlen)
-            {
-                break;
-            }
+        CryptoPP::StreamTransformationFilter stf(symmetricDecryptor, new CryptoPP::FileSink(*os), CryptoPP::BlockPaddingSchemeDef::PKCS_PADDING);
 
-            if(!EVP_DecryptUpdate(ctx, outbuf, &outlen, inbuf, inlen))
-            {
-                throw "EVP_DecryptUpdate failed";
-            }
-            write(outbuf, outlen);
-        }
-
-        if(!EVP_DecryptFinal(ctx, outbuf, &outlen))
+        std::array<uint8_t, BUFFER_SIZE> bufferIn, bufferOut;
+        while (size_t bytes = read(is, bufferIn.data(), BUFFER_SIZE))
         {
-            throw "EVP_DecryptFinal failed";
+            stf.Put(bufferIn.data(), bytes);
         }
-        write(outbuf, outlen);
+        stf.MessageEnd();
     }
-
 
 public:
-    void dump()
-    {
-        unsigned char iv[IV_LENGTH];
-        unsigned char key[SYMMETRIC_KEY_SIZE];
-        read_header(iv);
-        read_symmetric_key(key);
-
-        unsigned char keyBase64[SYMMETRIC_KEY_SIZE * 3 / 2 + 2];
-        int size = EVP_EncodeBlock(keyBase64, key, SYMMETRIC_KEY_SIZE);
-        if (size < 0) 
-        {
-            throw "Base64 encoding failed";    
-        }
-
-        write(keyBase64, size);
-    }
-
     void decrypt()
     {
         unsigned char iv[IV_LENGTH];
         unsigned char key[SYMMETRIC_KEY_SIZE];
-        read_header(iv);
-        read_symmetric_key(key);
-        decrypt_with_symmetric_key(iv, key);
+
+        auto in = openIn(inFileName);
+        auto out = openOut(outFileName);
+
+        read_header(in.get(), iv);
+        read_symmetric_key(in.get(), key);
+        decrypt_with_symmetric_key(in.get(), out.get(), iv, key);
     }
-    
+
+    void dump()
+    {
+        unsigned char iv[IV_LENGTH];
+        unsigned char key[SYMMETRIC_KEY_SIZE];
+
+        auto in = openIn(inFileName);
+        auto out = openOut(outFileName);
+
+        read_header(in.get(), iv);
+        read_symmetric_key(in.get(), key);
+
+        CryptoPP::Base64Encoder b64enc(new CryptoPP::FileSink(*out));
+        b64enc.Put(key, SYMMETRIC_KEY_SIZE);
+        b64enc.MessageEnd();
+    }
+
     void decrypt_symmetric(const char *keyBase64)
     {
-        unsigned char key[SYMMETRIC_KEY_SIZE + 2];
-        size_t keyBase64Len = strlen(keyBase64);
-        if (keyBase64Len > (SYMMETRIC_KEY_SIZE * 4 / 3 + 2)) 
+        size_t keyBase64Len = std::strlen(keyBase64);
+        if (keyBase64Len > (SYMMETRIC_KEY_SIZE * 4 / 3 + 2))
         {
-            throw "Invalid length of input key";    
+            throw std::runtime_error("Invalid length of input key");
         }
 
-        size_t key_length = (size_t) EVP_DecodeBlock(key, reinterpret_cast<const unsigned char *>(keyBase64), strlen(keyBase64));
+        CryptoPP::Base64Decoder b64dec;
+        b64dec.Put(reinterpret_cast<const uint8_t *>(keyBase64), keyBase64Len);
+        b64dec.MessageEnd();
+
+        unsigned char key[SYMMETRIC_KEY_SIZE];
+        size_t key_length = b64dec.Get(reinterpret_cast<uint8_t *>(key), SYMMETRIC_KEY_SIZE);
+
         if (key_length == SYMMETRIC_KEY_SIZE + 1)
         {
             // key was padded
             --key_length;
         }
 
-        if (key_length != SYMMETRIC_KEY_SIZE) 
+        if (key_length != SYMMETRIC_KEY_SIZE)
         {
             std::cerr << keyBase64 << " " << key_length << ":" << (SYMMETRIC_KEY_SIZE) << std::endl;
-            throw "Invalid length of input key";    
+            throw std::runtime_error("Invalid length of input key");
         }
-        
+
+        auto in = openIn(inFileName);
+        auto out = openOut(outFileName);
+
         unsigned char iv[IV_LENGTH];
-        read_header(iv);
-        skip_symmetric_key();
-        decrypt_with_symmetric_key(iv, key);
+        read_header(in.get(), iv);
+        skip_symmetric_key(in.get());
+        decrypt_with_symmetric_key(in.get(), out.get(), iv, key);
     }
 };
 
-
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     try
     {
@@ -619,7 +383,7 @@ int main(int argc, char** argv)
         {
             cerr << "Decrypting..." << endl;
 
-            CDecrypt k((argc >= 4) ? argv[3] : NULL, (argc == 5) ? argv[4] : NULL);
+            CDecrypt k(nullptr, (argc >= 4) ? argv[3] : NULL, (argc == 5) ? argv[4] : NULL);
             k.decrypt_symmetric(argv[2]);
 
             return 0;
@@ -627,7 +391,7 @@ int main(int argc, char** argv)
 
         else
         {
-            cerr << "One way encryptor (c) 2014 by galets, https://github.com/galets/oneway-cpp" << endl;
+            cerr << "One way encryptor (c) 2014,2023 by galets, https://github.com/galets/oneway-cpp, version " << VERSION << endl;
             cerr << "Usage:" << endl;
             cerr << "   oneway [--encrypt|--decrypt|--genkey|--publickey]" << endl;
             cerr << "Example:" << endl;
@@ -640,11 +404,10 @@ int main(int argc, char** argv)
             cerr << endl;
             return 1;
         }
-
     }
-    catch(char const *ex)
+    catch (const std::exception &ex)
     {
-        cerr << "Error: " << ex << endl;
+        cerr << "Error: " << ex.what() << endl;
         return 1;
     }
 }

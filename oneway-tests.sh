@@ -6,13 +6,13 @@ function fail() {
 }
 
 function compare() {
-	cmp $1 $2 || (
+	if ! cmp $1 $2 ; then
 		hexdump -C $1 > $1.hex
 		hexdump -C $2 > $2.hex
 		diff $1.hex $2.hex
 		echo "Errors returned"
 		exit 1;
-	)
+	fi
 }
 
 PRG=./oneway

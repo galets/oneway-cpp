@@ -1,0 +1,6 @@
+[submodule "external/cryptopp"]
+	path = external/cryptopp
+	url = https://github.com/weidai11/cryptopp.git
+[submodule "external/cryptopp-pem"]
+	path = external/cryptopp-pem
+	url = https://github.com/noloader/cryptopp-pem.git

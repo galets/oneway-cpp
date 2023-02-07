@@ -105,7 +105,6 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_oneway_OBJECTS = oneway-oneway.$(OBJEXT)
 oneway_OBJECTS = $(am_oneway_OBJECTS)
-oneway_LDADD = $(LDADD)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -194,9 +193,6 @@ AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
-CC = @CC@
-CCDEPMODE = @CCDEPMODE@
-CFLAGS = @CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 CSCOPE = @CSCOPE@
 CTAGS = @CTAGS@
@@ -240,7 +236,6 @@ abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
-ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 am__include = @am__include@
 am__leading_dot = @am__leading_dot@
@@ -281,7 +276,9 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 oneway_SOURCES = oneway.cpp
-oneway_CPPFLAGS = -Wno-deprecated-declarations
+oneway_CPPFLAGS = -Iexternal -Wno-deprecated-declarations
+oneway_DEPENDENCIES = external/cryptopp/libcryptopp.a
+oneway_LDADD = external/cryptopp/libcryptopp.a
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -784,6 +781,9 @@ uninstall-am: uninstall-binPROGRAMS
 
 .PRECIOUS: Makefile
 
+
+external/cryptopp/libcryptopp.a:
+	cp external/cryptopp-pem/* external/cryptopp/ && cd external/cryptopp && $(MAKE)
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

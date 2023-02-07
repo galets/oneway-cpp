@@ -14,6 +14,7 @@ config.h
 config.status
 depend
 Makefile
+tmp
 obj
 oneway
 oneway.cbp

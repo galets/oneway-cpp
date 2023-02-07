@@ -1,81 +1,100 @@
-oneway-cpp
-==========
+# oneway-cpp
 
 Simple asymmetric encryption, C++ implementation
 
-Purpose:
--------------------------
+## Purpose:
 
 data encryption on the systems, where storing password or key in cleartext is not desirable option.
 
-
-Usage:
--------------------------
+## Usage:
 
 Tool will use standard io streams where possible, or files could be specified on command line
 
 Generate private key:
 
-	oneway --genkey private.key
-	oneway --genkey >private.key
+```
+oneway --genkey private.key
+oneway --genkey >private.key
+```
 
 Extract public key component from private key:
 
-	oneway --publickey private.key public.key
-	oneway --publickey <private.key >public.key
+```
+oneway --publickey private.key public.key
+oneway --publickey <private.key >public.key
+```
+
+Notice that public key format has changed starting with version 1.0. In order to upgrade,
+public key must be re-exported, or converted using OpenSSL:
+
+```
+openssl rsa -RSAPublicKey_in -in old-public.key -pubout >new-public.key
+```
 
 Encrypt file using public key:   
 
-	oneway --encrypt public.key plaintext.txt encrypted.ascr
-	oneway --encrypt public.key plaintext.txt >encrypted.ascr
-	oneway --encrypt public.key <plaintext.txt >encrypted.ascr
-   
+```
+oneway --encrypt public.key plaintext.txt encrypted.ascr
+oneway --encrypt public.key plaintext.txt >encrypted.ascr
+oneway --encrypt public.key <plaintext.txt >encrypted.ascr
+```
+
 Decrypt file using private key:
 
-	oneway --decrypt private.key encrypted.ascr plaintext.txt
-	oneway --decrypt private.key encrypted.ascr >plaintext.txt
-	oneway --decrypt private.key <encrypted.ascr >plaintext.txt
+```
+oneway --decrypt private.key encrypted.ascr plaintext.txt
+oneway --decrypt private.key encrypted.ascr >plaintext.txt
+oneway --decrypt private.key <encrypted.ascr >plaintext.txt
+```
 
-Two-stage decryption:
--------------------------
 
-Where it is necessary to allow 3rd party independently decrypt files without providing private key, it is possible to decrypt files in two stages: first, a symmetric key is extracted, then file gets decrypted using given symmetric key
+## Two-stage decryption:
+
+Where it is necessary to allow 3rd party independently decrypt files without providing private key,
+it is possible to decrypt files in two stages: first, a symmetric key is extracted,
+then file gets decrypted using given symmetric key
 
 Extract symmetric key:
 
-	oneway --dump-key private.key encrypted.ascr key.base64
-	oneway --dump-key private.key encrypted.ascr >key.base64
-	oneway --dump-key private.key <encrypted.ascr >key.base64
+```
+oneway --dump-key private.key encrypted.ascr key.base64
+oneway --dump-key private.key encrypted.ascr >key.base64
+oneway --dump-key private.key <encrypted.ascr >key.base64
+```
 
 Decrypt file using symmetric key:
 
-	oneway --decrypt-with-symkey "key-in-base64-format" encrypted.ascr plaintext.txt
-	oneway --decrypt-with-symkey "key-in-base64-format" encrypted.ascr >plaintext.txt
-	oneway --decrypt-with-symkey "key-in-base64-format" <encrypted.ascr >plaintext.txt
+```
+oneway --decrypt-with-symkey "key-in-base64-format" encrypted.ascr plaintext.txt
+oneway --decrypt-with-symkey "key-in-base64-format" encrypted.ascr >plaintext.txt
+oneway --decrypt-with-symkey "key-in-base64-format" <encrypted.ascr >plaintext.txt
+```
 
 Symmetric key from one file would not work on any other file.
 
-Internals:
--------------------------
+## Internals:
 
-Each file is encrypted using AES256 with randomly generated key. AES256 key is encrypted using 4096
+Each file is encrypted using AES-CBC-256 with randomly generated key. AES key is encrypted using 4096
 bit RSA and stored with the file.
 
-File structure:
+### File structure:
+```
+4 bytes:    signature  "ASCR"
+16 bytes:   AES IV
+512 bytes:  RSA 4096-encrypted AES key
+rest:       encrypted file contents
+```
 
-	4 bytes:    signature  "ASCR"
-	16 bytes:   AES IV
-	512 bytes:  RSA 4096-encrypted AES key
-	rest:       encrypted file contents
-
-
-See Also:
--------------------------
+### See Also:
 
 Files in compatible format are produced by similar .NET utility located at:
 https://github.com/galets/AsymmetricCrypt
 
-License:
--------------------------
+## License:
 
-This utility is licensed under GPLv3
+This utility is licensed under [GPLv3](COPYING). See 
+
+## Third Party Components:
+
+* Crypto++ (https://github.com/weidai11/cryptopp)
+* Crypto++ PEM Pack (https://github.com/noloader/cryptopp-pem)

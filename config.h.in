@@ -3,9 +3,6 @@
 /* define if the compiler supports basic C++20 syntax */
 #undef HAVE_CXX20
 
-/* Define to 1 if you have the `crypto' library (-lcrypto). */
-#undef HAVE_LIBCRYPTO
-
 /* Name of package */
 #undef PACKAGE
 
