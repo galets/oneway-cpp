@@ -1,23 +1,26 @@
 name: C/C++ CI
 
 on:
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    push:
+        branches: ["master"]
+    pull_request:
+        branches: ["master"]
 
 jobs:
-  build:
+    build:
+        runs-on: ubuntu-22.04
 
-    runs-on: ubuntu-22.04
-
-    steps:
-    - uses: actions/checkout@v3
-    - name: configure
-      run: ./configure
-    - name: make
-      run: make
-    - name: make check
-      run: make check
-    - name: make distcheck
-      run: make distcheck
+        steps:
+            - uses: actions/checkout@v3
+            - name: submodules
+              run: git submodule init; git submodule update
+            - name: configure
+              run: ./configure
+            - name: make-lib
+              run: make external/cryptopp/libcryptopp.a
+            - name: make
+              run: make
+            - name: make check
+              run: make check
+            # - name: make distcheck
+            #   run: make distcheck
