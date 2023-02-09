@@ -24,13 +24,6 @@ oneway --publickey private.key public.key
 oneway --publickey <private.key >public.key
 ```
 
-Notice that public key format has changed starting with version 1.0. In order to upgrade,
-public key must be re-exported, or converted using OpenSSL:
-
-```
-openssl rsa -RSAPublicKey_in -in old-public.key -pubout >new-public.key
-```
-
 Encrypt file using public key:   
 
 ```

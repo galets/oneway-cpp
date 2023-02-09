@@ -10,6 +10,7 @@
 #include <cryptopp/modes.h>
 #include <cryptopp/osrng.h>
 #include <cryptopp/pem.h>
+#include <cryptopp/pem_common.h>
 #include <cryptopp/rsa.h>
 
 #include "config.h"
@@ -116,6 +117,68 @@ void storeKey(T &key, const char *fileName)
     auto out = openOut(fileName);
     CryptoPP::FileSink fs(*out.get());
     CryptoPP::PEM_Save(fs, key);
+}
+
+template <>
+CryptoPP::RSA::PublicKey loadKey(const char *fileName)
+{
+    auto in = openIn(fileName);
+    std::stringstream ss;
+    ss << in->rdbuf();
+    std::string input = ss.str();
+    in.reset();
+
+    std::string start_delimiter(CryptoPP::PEM::RSA_PUBLIC_BEGIN.c_str());
+    std::string end_delimiter(CryptoPP::PEM::RSA_PUBLIC_END.c_str());
+
+    size_t start_pos = input.find(start_delimiter);
+    if (start_pos == std::string::npos)
+    {
+        throw std::runtime_error(start_delimiter + " not found in PEM");
+    }
+    start_pos += start_delimiter.length();
+    start_pos += 1;
+    size_t end_pos = input.find(end_delimiter, start_pos);
+    if (end_pos == std::string::npos)
+    {
+        throw std::runtime_error(end_delimiter + " not found in PEM");
+    }
+    std::string keyBase64 = input.substr(start_pos, end_pos - start_pos);
+
+    auto queue = new CryptoPP::ByteQueue();
+    CryptoPP::Base64Decoder b64dec(queue);
+    b64dec.Put(reinterpret_cast<const uint8_t *>(keyBase64.data()), keyBase64.size());
+    b64dec.MessageEnd();
+
+    CryptoPP::BERSequenceDecoder seq(*queue);
+    CryptoPP::Integer modulus, exponent;
+    modulus.BERDecode(seq);
+    exponent.BERDecode(seq);
+    seq.MessageEnd();
+
+    CryptoPP::RSA::PublicKey key;
+    key.SetModulus(modulus);
+    key.SetPublicExponent(exponent);
+    return key;
+}
+
+template <>
+void storeKey(CryptoPP::RSA::PublicKey &key, const char *fileName)
+{
+    auto out = openOut(fileName);
+    *out << CryptoPP::PEM::RSA_PUBLIC_BEGIN << std::endl;
+
+    CryptoPP::FileSink fs(*out.get());
+    CryptoPP::Base64Encoder b64enc(new CryptoPP::FileSink(*out), true, 64);
+
+    CryptoPP::DERSequenceEncoder subjectPublicKeyInfo(b64enc);
+    key.GetModulus().BEREncode(subjectPublicKeyInfo);
+    key.GetPublicExponent().BEREncode(subjectPublicKeyInfo);
+    subjectPublicKeyInfo.MessageEnd();
+
+    b64enc.MessageEnd();
+
+    *out << CryptoPP::PEM::RSA_PUBLIC_END << std::endl;
 }
 
 class CGenKey
