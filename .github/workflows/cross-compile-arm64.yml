@@ -23,6 +23,13 @@ jobs:
                   git submodule init
                   git submodule update
 
+            - name: Restore Crypto++
+              id: cache-cryptopp
+              uses: actions/cache/restore@v3
+              with:
+                  path: external/cryptopp
+                  key: ${CROSS_TRIPLE}-cryptopp
+
             - name: Set up build environment
               run: |
                   sudo apt-get update
@@ -32,7 +39,15 @@ jobs:
               run: |
                   ./configure --host=${CROSS_TRIPLE}
 
-            - name: Build
-              run: |
-                  make cryptopp
-                  make oneway
+            - name: Build Crypto++
+              run: make cryptopp
+
+            - name: Save Crypto++
+              id: cache-cryptopp-save
+              uses: actions/cache/save@v3
+              with:
+                  path: external/cryptopp
+                  key: ${{ steps.cache-cryptopp.outputs.cache-primary-key }}
+
+            - name: Build Project
+              run: make oneway
