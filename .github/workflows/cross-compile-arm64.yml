@@ -3,8 +3,6 @@ name: Cross Compile to ARM64
 on:
     push:
         branches: ["master"]
-    pull_request:
-        branches: ["master"]
 
 env:
     CROSS_TRIPLE: aarch64-linux-gnu
