@@ -102,27 +102,24 @@ void readExact(std::istream *stream, void *buffer, size_t bufferSize)
 }
 
 template <typename T>
-T loadKey(const char *fileName)
+T loadKey(std::shared_ptr<std::istream> in)
 {
     T key;
-    auto in = openIn(fileName);
     CryptoPP::FileSource source(*in.get(), true);
     CryptoPP::PEM_Load(source, key);
     return key;
 }
 
 template <typename T>
-void storeKey(T &key, const char *fileName)
+void storeKey(T &key, std::shared_ptr<std::ostream> out)
 {
-    auto out = openOut(fileName);
     CryptoPP::FileSink fs(*out.get());
     CryptoPP::PEM_Save(fs, key);
 }
 
 template <>
-CryptoPP::RSA::PublicKey loadKey(const char *fileName)
+CryptoPP::RSA::PublicKey loadKey(std::shared_ptr<std::istream> in)
 {
-    auto in = openIn(fileName);
     std::stringstream ss;
     ss << in->rdbuf();
     std::string input = ss.str();
@@ -163,9 +160,8 @@ CryptoPP::RSA::PublicKey loadKey(const char *fileName)
 }
 
 template <>
-void storeKey(CryptoPP::RSA::PublicKey &key, const char *fileName)
+void storeKey(CryptoPP::RSA::PublicKey &key, std::shared_ptr<std::ostream> out)
 {
-    auto out = openOut(fileName);
     *out << CryptoPP::PEM::RSA_PUBLIC_BEGIN << std::endl;
 
     CryptoPP::FileSink fs(*out.get());
@@ -196,7 +192,7 @@ public:
 
     void printkey()
     {
-        storeKey(rsaPrivate, fileName);
+        storeKey(rsaPrivate, openOut(fileName));
     }
 };
 
@@ -209,9 +205,9 @@ public:
 
     void convert()
     {
-        auto privKey = loadKey<CryptoPP::RSA::PrivateKey>(in);
+        auto privKey = loadKey<CryptoPP::RSA::PrivateKey>(openIn(in));
         CryptoPP::RSA::PublicKey pubKey(privKey);
-        storeKey(pubKey, out);
+        storeKey(pubKey, openOut(out));
     }
 };
 
@@ -230,7 +226,7 @@ public:
 
     void encrypt()
     {
-        auto publicKey = loadKey<CryptoPP::RSA::PublicKey>(pubKeyFileName);
+        auto publicKey = loadKey<CryptoPP::RSA::PublicKey>(openIn(pubKeyFileName));
         auto keySize = publicKey.GetModulus().BitCount();
         if (keySize != KEY_SIZE)
         {
@@ -286,7 +282,7 @@ private:
         unsigned char key_encrypted[KEY_SIZE / 8];
         readExact(is, key_encrypted, sizeof(key_encrypted));
 
-        auto privateKey = loadKey<CryptoPP::RSA::PrivateKey>(privKeyName);
+        auto privateKey = loadKey<CryptoPP::RSA::PrivateKey>(openIn(privKeyName));
         auto keySize = privateKey.GetModulus().BitCount();
         if (keySize != KEY_SIZE)
         {

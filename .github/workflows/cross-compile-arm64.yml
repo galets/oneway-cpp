@@ -1,46 +1,40 @@
 name: Cross Compile to ARM64
 
 on:
-  push:
-    branches:
-      - master
+    push:
+        branches:
+            - master
 
 env:
-  CROSS_TRIPLE: aarch64-linux-gnu
-  CC: aarch64-linux-gnu-gcc
-  CXX: aarch64-linux-gnu-g++
-  CXXFLAGS: "-static"
+    CROSS_TRIPLE: aarch64-linux-gnu
+    CC: aarch64-linux-gnu-gcc
+    CXX: aarch64-linux-gnu-g++
+    CXXFLAGS: "-static"
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+    build:
+        runs-on: ubuntu-latest
 
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v3
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v3
 
-    - name: Set up submodules
-      run: |
-          git submodule init
-          git submodule update
+            - name: Set up submodules
+              run: |
+                  git submodule init
+                  git submodule update
 
-    - name: Set up build environment
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential binutils-aarch64-linux-gnu g++-aarch64-linux-gnu
+            - name: Set up build environment
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y build-essential binutils-aarch64-linux-gnu g++-aarch64-linux-gnu
 
-    - name: Configure build
-      run: |
-        ./configure --host=${CROSS_TRIPLE}
+            - name: Configure build
+              run: |
+                  ./configure --host=${CROSS_TRIPLE}
 
-    - name: Build Crypto++
-      run: |
-        cp external/cryptopp-pem/* external/cryptopp/ &&
-        cd external/cryptopp &&
-        make
+            - name: Build
+              run: make
 
-    - name: Build
-      run: make
-
-    - name: Run tests
-      run: make check
+            - name: Run tests
+              run: make check

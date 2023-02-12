@@ -12,15 +12,18 @@ jobs:
 
         steps:
             - uses: actions/checkout@v3
-            - name: submodules
-              run: git submodule init; git submodule update
-            - name: configure
-              run: ./configure
-            - name: make-lib
-              run: make external/cryptopp/libcryptopp.a
-            - name: make
+
+            - name: Set up submodules
+              run: |
+                  git submodule init
+                  git submodule update
+
+            - name: Configure build
+              run: |
+                  ./configure
+
+            - name: Build
               run: make
-            - name: make check
+
+            - name: Run tests
               run: make check
-            # - name: make distcheck
-            #   run: make distcheck

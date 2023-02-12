@@ -9,6 +9,8 @@ onewaytests_CPPFLAGS = -Iexternal -Wno-deprecated-declarations -DTESTS ${GTEST_C
 onewaytests_LDADD = -Lexternal/cryptopp -lcryptopp ${GTEST_LIBS}
 onewaytests_DEPENDENCIES = cryptopp
 
+TESTS = onewaytests tests/general-invoke.sh
+
 .PHONY: cryptopp
 cryptopp: external/cryptopp-pem/*.cpp external/cryptopp-pem/*.h external/cryptopp-pem/*
 	cp --update external/cryptopp-pem/* external/cryptopp/

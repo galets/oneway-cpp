@@ -7,6 +7,7 @@
 *.log
 *.o
 *.tar.gz
+*.trs
 *~
 aclocal.m4
 autom4te.cache
