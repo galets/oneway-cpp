@@ -35,4 +35,4 @@ jobs:
             - name: Build
               run: |
                   make cryptopp
-                  make
+                  make oneway
