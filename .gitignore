@@ -1,4 +1,5 @@
 .deps
+.dirstamp
 .vscode
 *.cbp
 *.depend
@@ -6,6 +7,7 @@
 *.log
 *.o
 *.tar.gz
+*.trs
 *~
 aclocal.m4
 autom4te.cache
@@ -19,3 +21,4 @@ obj
 oneway
 oneway.cbp
 stamp-h1
+onewaytests

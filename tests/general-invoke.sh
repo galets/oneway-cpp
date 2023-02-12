@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
 function fail() {
 	echo "Errors returned"
 	exit 1;
