@@ -35,4 +35,6 @@ jobs:
                   ./configure --host=${CROSS_TRIPLE}
 
             - name: Build
-              run: make
+              run: |
+                  make cryptopp
+                  make

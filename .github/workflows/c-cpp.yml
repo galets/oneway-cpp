@@ -28,7 +28,9 @@ jobs:
                   ./configure
 
             - name: Build
-              run: make
+              run: |
+                  make cryptopp
+                  make
 
             - name: Run tests
               run: make check
