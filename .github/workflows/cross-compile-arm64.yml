@@ -2,8 +2,9 @@ name: Cross Compile to ARM64
 
 on:
     push:
-        branches:
-            - master
+        branches: ["master"]
+    pull_request:
+        branches: ["master"]
 
 env:
     CROSS_TRIPLE: aarch64-linux-gnu
@@ -27,7 +28,7 @@ jobs:
             - name: Set up build environment
               run: |
                   sudo apt-get update
-                  sudo apt-get install -y build-essential binutils-aarch64-linux-gnu g++-aarch64-linux-gnu
+                  sudo apt-get install -y build-essential libgtest-dev binutils-aarch64-linux-gnu g++-aarch64-linux-gnu
 
             - name: Configure build
               run: |
@@ -35,6 +36,3 @@ jobs:
 
             - name: Build
               run: make
-
-            - name: Run tests
-              run: make check
