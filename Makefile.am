@@ -1,10 +1,15 @@
-bin_PROGRAMS = oneway
-oneway_SOURCES = oneway.cpp
+bin_PROGRAMS = oneway onewaytests
+oneway_SOURCES = src/oneway.cpp src/main.cpp
 oneway_CPPFLAGS = -Iexternal -Wno-deprecated-declarations
-oneway_DEPENDENCIES = external/cryptopp/libcryptopp.a
-oneway_LDADD = external/cryptopp/libcryptopp.a
+oneway_LDADD = -Lexternal/cryptopp -lcryptopp
+oneway_DEPENDENCIES = cryptopp
 
+onewaytests_SOURCES = tests/main.cpp tests/unit-tests.cpp src/oneway.cpp
+onewaytests_CPPFLAGS = -Iexternal -Wno-deprecated-declarations -DTESTS ${GTEST_CFLAGS}
+onewaytests_LDADD = -Lexternal/cryptopp -lcryptopp ${GTEST_LIBS}
+onewaytests_DEPENDENCIES = cryptopp
 
-
-#external/cryptopp/libcryptopp.a:
-#	cp external/cryptopp-pem/* external/cryptopp/ && cd external/cryptopp && $(MAKE)
+.PHONY: cryptopp
+cryptopp: external/cryptopp-pem/*.cpp external/cryptopp-pem/*.h external/cryptopp-pem/*
+	cp --update external/cryptopp-pem/* external/cryptopp/
+	$(MAKE) --directory external/cryptopp

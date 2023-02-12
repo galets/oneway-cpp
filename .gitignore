@@ -1,4 +1,5 @@
 .deps
+.dirstamp
 .vscode
 *.cbp
 *.depend
@@ -19,3 +20,4 @@ obj
 oneway
 oneway.cbp
 stamp-h1
+onewaytests
