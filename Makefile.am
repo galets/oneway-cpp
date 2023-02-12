@@ -12,6 +12,6 @@ onewaytests_DEPENDENCIES = cryptopp
 TESTS = onewaytests tests/general-invoke.sh
 
 .PHONY: cryptopp
-cryptopp: external/cryptopp-pem/*.cpp external/cryptopp-pem/*.h external/cryptopp-pem/*
+cryptopp:
 	cp --update external/cryptopp-pem/* external/cryptopp/
 	$(MAKE) --directory external/cryptopp
