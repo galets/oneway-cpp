@@ -23,7 +23,7 @@ jobs:
               uses: actions/cache/restore@v3
               with:
                   path: external/cryptopp
-                  key: native-cryptopp
+                  key: native-cryptopp-$(git -C external/cryptopp rev-parse HEAD)-$(git -C external/cryptop-pem rev-parse HEAD)
 
             - name: Set up build environment
               run: |
@@ -42,7 +42,7 @@ jobs:
               uses: actions/cache/save@v3
               with:
                   path: external/cryptopp
-                  key: ${{ steps.cache-cryptopp.outputs.cache-primary-key }}
+                  key: native-cryptopp-$(git -C external/cryptopp rev-parse HEAD)-$(git -C external/cryptop-pem rev-parse HEAD)
 
             - name: Build Project
               run: make
