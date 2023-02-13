@@ -1286,7 +1286,7 @@ uninstall-am: uninstall-binPROGRAMS
 .PHONY: cryptopp
 cryptopp:
 	cp --update external/cryptopp-pem/* external/cryptopp/
-	$(MAKE) --directory external/cryptopp
+	$(MAKE) --directory external/cryptopp static
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

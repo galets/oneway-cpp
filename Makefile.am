@@ -14,4 +14,4 @@ TESTS = onewaytests tests/general-invoke.sh
 .PHONY: cryptopp
 cryptopp:
 	cp --update external/cryptopp-pem/* external/cryptopp/
-	$(MAKE) --directory external/cryptopp
+	$(MAKE) --directory external/cryptopp static
