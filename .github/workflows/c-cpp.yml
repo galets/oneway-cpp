@@ -6,9 +6,6 @@ on:
     pull_request:
         branches: ["master"]
 
-env:
-    ACTIONS_RUNNER_DEBUG: true
-
 jobs:
     build:
         runs-on: ubuntu-22.04
@@ -26,9 +23,7 @@ jobs:
               uses: actions/cache/restore@v3
               with:
                   path: external/cryptopp
-                  key: native-cryptopp-`git -C external/cryptopp rev-parse HEAD`-`git -C external/cryptop-pem rev-parse HEAD`
-              env:
-                  ACTIONS_STEP_DEBUG: true
+                  key: native-cryptopp-${{ hashFiles('external/cryptopp/*.cpp', 'external/cryptopp/*.h', 'external/cryptopp-pem/*.cpp', 'external/cryptopp-pem/*.h') }}
 
             - name: Set up build environment
               run: |
@@ -47,7 +42,7 @@ jobs:
               uses: actions/cache/save@v3
               with:
                   path: external/cryptopp
-                  key: native-cryptopp-`git -C external/cryptopp rev-parse HEAD`-`git -C external/cryptop-pem rev-parse HEAD`
+                  key: native-cryptopp-${{ hashFiles('external/cryptopp/*.cpp', 'external/cryptopp/*.h', 'external/cryptopp-pem/*.cpp', 'external/cryptopp-pem/*.h') }}
 
             - name: Build Project
               run: make
