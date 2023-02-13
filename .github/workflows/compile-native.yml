@@ -35,7 +35,7 @@ jobs:
                   ./configure
 
             - name: Build Crypto++
-              run: make static
+              run: make cryptopp
 
             - name: Save Crypto++
               id: cache-cryptopp-save
