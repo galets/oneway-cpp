@@ -28,7 +28,7 @@ jobs:
               uses: actions/cache/restore@v3
               with:
                   path: external/cryptopp
-                  key: ${CROSS_TRIPLE}-cryptopp-${{ hashFiles('external/cryptopp/*.cpp', 'external/cryptopp/*.h', 'external/cryptopp-pem/*.cpp', 'external/cryptopp-pem/*.h') }}
+                  key: aarch64-cryptopp-${{ hashFiles('external/cryptopp/*.cpp', 'external/cryptopp/*.h', 'external/cryptopp-pem/*.cpp', 'external/cryptopp-pem/*.h') }}
 
             - name: Set up build environment
               run: |
