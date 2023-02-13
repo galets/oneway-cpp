@@ -13,37 +13,7 @@
 #include <cryptopp/pem_common.h>
 #include <cryptopp/rsa.h>
 
-#include "config.h"
-
-using namespace std;
-
-static const char *HEADER = "ASCR";
-static const size_t HEADER_SIZE = 4;
-static const int KEY_SIZE = 4096;
-static const int SYMMETRIC_KEY_SIZE = 32;
-static const int IV_LENGTH = 16;
-static const int BUFFER_SIZE = 4096;
-static const size_t AES256_CBC_BLOCKSIZE = 32;
-
-void dbg(const char *annotation, unsigned const char *buf, size_t size)
-{
-#ifdef _DEBUG
-    cerr << annotation << ":";
-    if (!buf)
-    {
-        cerr << " NULL" << endl;
-        return;
-    }
-
-    for (size_t i = 0; i < size; ++i)
-    {
-        char buffer[10];
-        sprintf(buffer, " %02X", buf[i]);
-        cerr << buffer;
-    }
-    cerr << endl;
-#endif
-}
+#include "oneway.h"
 
 CryptoPP::AutoSeededRandomPool prng;
 
@@ -177,296 +147,181 @@ void storeKey(CryptoPP::RSA::PublicKey &key, std::shared_ptr<std::ostream> out)
     *out << CryptoPP::PEM::RSA_PUBLIC_END << std::endl;
 }
 
-class CGenKey
+CGenKey::CGenKey(char *fileName) : fileName(fileName) {}
+
+void CGenKey::genkey()
 {
-    CryptoPP::RSA::PrivateKey rsaPrivate;
-    const char *fileName;
+    rsaPrivate.GenerateRandomWithKeySize(prng, KEY_SIZE);
+}
 
-public:
-    CGenKey(char *fileName) : fileName(fileName) {}
-
-    void genkey()
-    {
-        rsaPrivate.GenerateRandomWithKeySize(prng, KEY_SIZE);
-    }
-
-    void printkey()
-    {
-        storeKey(rsaPrivate, openOut(fileName));
-    }
-};
-
-class CConvertToPublicKey
+void CGenKey::printkey()
 {
-    const char *in, *out;
+    storeKey(rsaPrivate, openOut(fileName));
+}
 
-public:
-    CConvertToPublicKey(char *inFileName, char *outFileName) : in(inFileName), out(outFileName) {}
+CConvertToPublicKey::CConvertToPublicKey(char *inFileName, char *outFileName) : in(inFileName), out(outFileName) {}
 
-    void convert()
+void CConvertToPublicKey::convert()
+{
+    auto privKey = loadKey<CryptoPP::RSA::PrivateKey>(openIn(in));
+    CryptoPP::RSA::PublicKey pubKey(privKey);
+    storeKey(pubKey, openOut(out));
+}
+
+CEncrypt::CEncrypt(char *pubKeyFileName, char *inFileName, char *outFileName) : pubKeyFileName(pubKeyFileName), inFileName(inFileName), outFileName(outFileName)
+{
+    prng.GenerateBlock(iv, IV_LENGTH);
+    prng.GenerateBlock(key, SYMMETRIC_KEY_SIZE);
+}
+
+void CEncrypt::encrypt()
+{
+    auto publicKey = loadKey<CryptoPP::RSA::PublicKey>(openIn(pubKeyFileName));
+    auto keySize = publicKey.GetModulus().BitCount();
+    if (keySize != KEY_SIZE)
     {
-        auto privKey = loadKey<CryptoPP::RSA::PrivateKey>(openIn(in));
-        CryptoPP::RSA::PublicKey pubKey(privKey);
-        storeKey(pubKey, openOut(out));
+        throw std::runtime_error(std::string("Invalid key size: " + keySize));
     }
-};
 
-class CEncrypt
+    CryptoPP::RSAES_PKCS1v15_Encryptor publicKeyEncryptor(publicKey);
+    size_t ciphertextSize = publicKeyEncryptor.CiphertextLength(SYMMETRIC_KEY_SIZE);
+    if (ciphertextSize > KEY_SIZE / 8)
+    {
+        throw std::runtime_error(std::string("Internal error, ciphertext would be too long: ", ciphertextSize));
+    }
+    unsigned char key_encrypted[KEY_SIZE / 8];
+    publicKeyEncryptor.Encrypt(prng, key, SYMMETRIC_KEY_SIZE, key_encrypted);
+
+    CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption symmetricEncryptor;
+    symmetricEncryptor.SetKeyWithIV(key, SYMMETRIC_KEY_SIZE, iv, IV_LENGTH);
+
+    auto is = openIn(inFileName);
+    auto os = openOut(outFileName);
+
+    write(os.get(), HEADER, HEADER_SIZE);
+    write(os.get(), iv, sizeof(iv));
+    write(os.get(), key_encrypted, sizeof(key_encrypted));
+
+    std::array<uint8_t, BUFFER_SIZE> buffer;
+    CryptoPP::StreamTransformationFilter stf(symmetricEncryptor, new CryptoPP::FileSink(*os), CryptoPP::BlockPaddingSchemeDef::PKCS_PADDING);
+    while (size_t bytes = read(is.get(), buffer.data(), buffer.size()))
+    {
+        stf.Put(buffer.data(), bytes);
+    }
+    stf.MessageEnd();
+}
+
+CDecrypt::CDecrypt(char *privKeyName, char *inFileName, char *outFileName) : privKeyName(privKeyName), inFileName(inFileName), outFileName(outFileName) {}
+
+void CDecrypt::read_header(std::istream *is, unsigned char iv[])
+{
+    char header[HEADER_SIZE] = {0};
+    readExact(is, header, sizeof(header));
+    readExact(is, iv, IV_LENGTH);
+}
+
+void CDecrypt::read_symmetric_key(std::istream *is, unsigned char key[])
+{
+    unsigned char key_encrypted[KEY_SIZE / 8];
+    readExact(is, key_encrypted, sizeof(key_encrypted));
+
+    auto privateKey = loadKey<CryptoPP::RSA::PrivateKey>(openIn(privKeyName));
+    auto keySize = privateKey.GetModulus().BitCount();
+    if (keySize != KEY_SIZE)
+    {
+        throw std::runtime_error(std::string("Invalid key size: " + keySize));
+    }
+
+    CryptoPP::RSAES_PKCS1v15_Decryptor decryptor(privateKey);
+    if (decryptor.FixedMaxPlaintextLength() > sizeof(key_encrypted))
+    {
+        throw std::runtime_error("Invalid decryption parameters");
+    }
+    decryptor.Decrypt(prng, key_encrypted, sizeof(key_encrypted), key);
+}
+
+void CDecrypt::skip_symmetric_key(std::istream *is)
+{
+    unsigned char key_encrypted[KEY_SIZE / 8];
+    readExact(is, key_encrypted, sizeof(key_encrypted));
+}
+
+void CDecrypt::decrypt_with_symmetric_key(std::istream *is, std::ostream *os, unsigned char iv[], unsigned char key[])
+{
+    CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption symmetricDecryptor;
+    symmetricDecryptor.SetKeyWithIV(key, SYMMETRIC_KEY_SIZE, iv, IV_LENGTH);
+
+    CryptoPP::StreamTransformationFilter stf(symmetricDecryptor, new CryptoPP::FileSink(*os), CryptoPP::BlockPaddingSchemeDef::PKCS_PADDING);
+
+    std::array<uint8_t, BUFFER_SIZE> bufferIn, bufferOut;
+    while (size_t bytes = read(is, bufferIn.data(), BUFFER_SIZE))
+    {
+        stf.Put(bufferIn.data(), bytes);
+    }
+    stf.MessageEnd();
+}
+
+void CDecrypt::decrypt()
 {
     unsigned char iv[IV_LENGTH];
     unsigned char key[SYMMETRIC_KEY_SIZE];
-    const char *pubKeyFileName, *inFileName, *outFileName;
 
-public:
-    CEncrypt(char *pubKeyFileName, char *inFileName, char *outFileName) : pubKeyFileName(pubKeyFileName), inFileName(inFileName), outFileName(outFileName)
-    {
-        prng.GenerateBlock(iv, IV_LENGTH);
-        prng.GenerateBlock(key, SYMMETRIC_KEY_SIZE);
-    }
+    auto in = openIn(inFileName);
+    auto out = openOut(outFileName);
 
-    void encrypt()
-    {
-        auto publicKey = loadKey<CryptoPP::RSA::PublicKey>(openIn(pubKeyFileName));
-        auto keySize = publicKey.GetModulus().BitCount();
-        if (keySize != KEY_SIZE)
-        {
-            throw std::runtime_error(std::string("Invalid key size: " + keySize));
-        }
+    read_header(in.get(), iv);
+    read_symmetric_key(in.get(), key);
+    decrypt_with_symmetric_key(in.get(), out.get(), iv, key);
+}
 
-        CryptoPP::RSAES_PKCS1v15_Encryptor publicKeyEncryptor(publicKey);
-        size_t ciphertextSize = publicKeyEncryptor.CiphertextLength(SYMMETRIC_KEY_SIZE);
-        if (ciphertextSize > KEY_SIZE / 8)
-        {
-            throw std::runtime_error(std::string("Internal error, ciphertext would be too long: ", ciphertextSize));
-        }
-        unsigned char key_encrypted[KEY_SIZE / 8];
-        publicKeyEncryptor.Encrypt(prng, key, SYMMETRIC_KEY_SIZE, key_encrypted);
-
-        CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption symmetricEncryptor;
-        symmetricEncryptor.SetKeyWithIV(key, SYMMETRIC_KEY_SIZE, iv, IV_LENGTH);
-
-        auto is = openIn(inFileName);
-        auto os = openOut(outFileName);
-
-        write(os.get(), HEADER, HEADER_SIZE);
-        write(os.get(), iv, sizeof(iv));
-        write(os.get(), key_encrypted, sizeof(key_encrypted));
-
-        std::array<uint8_t, BUFFER_SIZE> buffer;
-        CryptoPP::StreamTransformationFilter stf(symmetricEncryptor, new CryptoPP::FileSink(*os), CryptoPP::BlockPaddingSchemeDef::PKCS_PADDING);
-        while (size_t bytes = read(is.get(), buffer.data(), buffer.size()))
-        {
-            stf.Put(buffer.data(), bytes);
-        }
-        stf.MessageEnd();
-    }
-};
-
-class CDecrypt
+void CDecrypt::dump()
 {
-    const char *privKeyName, *inFileName, *outFileName;
+    unsigned char iv[IV_LENGTH];
+    unsigned char key[SYMMETRIC_KEY_SIZE];
 
-public:
-    CDecrypt(char *privKeyName, char *inFileName, char *outFileName) : privKeyName(privKeyName), inFileName(inFileName), outFileName(outFileName) {}
+    auto in = openIn(inFileName);
+    auto out = openOut(outFileName);
 
-private:
-    void read_header(std::istream *is, unsigned char iv[])
-    {
-        char header[HEADER_SIZE] = {0};
-        readExact(is, header, sizeof(header));
-        readExact(is, iv, IV_LENGTH);
-    }
+    read_header(in.get(), iv);
+    read_symmetric_key(in.get(), key);
 
-    void read_symmetric_key(std::istream *is, unsigned char key[])
-    {
-        unsigned char key_encrypted[KEY_SIZE / 8];
-        readExact(is, key_encrypted, sizeof(key_encrypted));
+    CryptoPP::Base64Encoder b64enc(new CryptoPP::FileSink(*out));
+    b64enc.Put(key, SYMMETRIC_KEY_SIZE);
+    b64enc.MessageEnd();
+}
 
-        auto privateKey = loadKey<CryptoPP::RSA::PrivateKey>(openIn(privKeyName));
-        auto keySize = privateKey.GetModulus().BitCount();
-        if (keySize != KEY_SIZE)
-        {
-            throw std::runtime_error(std::string("Invalid key size: " + keySize));
-        }
-
-        CryptoPP::RSAES_PKCS1v15_Decryptor decryptor(privateKey);
-        if (decryptor.FixedMaxPlaintextLength() > sizeof(key_encrypted))
-        {
-            throw std::runtime_error("Invalid decryption parameters");
-        }
-        decryptor.Decrypt(prng, key_encrypted, sizeof(key_encrypted), key);
-    }
-
-    void skip_symmetric_key(std::istream *is)
-    {
-        unsigned char key_encrypted[KEY_SIZE / 8];
-        readExact(is, key_encrypted, sizeof(key_encrypted));
-    }
-
-    void decrypt_with_symmetric_key(std::istream *is, std::ostream *os, unsigned char iv[], unsigned char key[])
-    {
-        CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption symmetricDecryptor;
-        symmetricDecryptor.SetKeyWithIV(key, SYMMETRIC_KEY_SIZE, iv, IV_LENGTH);
-
-        CryptoPP::StreamTransformationFilter stf(symmetricDecryptor, new CryptoPP::FileSink(*os), CryptoPP::BlockPaddingSchemeDef::PKCS_PADDING);
-
-        std::array<uint8_t, BUFFER_SIZE> bufferIn, bufferOut;
-        while (size_t bytes = read(is, bufferIn.data(), BUFFER_SIZE))
-        {
-            stf.Put(bufferIn.data(), bytes);
-        }
-        stf.MessageEnd();
-    }
-
-public:
-    void decrypt()
-    {
-        unsigned char iv[IV_LENGTH];
-        unsigned char key[SYMMETRIC_KEY_SIZE];
-
-        auto in = openIn(inFileName);
-        auto out = openOut(outFileName);
-
-        read_header(in.get(), iv);
-        read_symmetric_key(in.get(), key);
-        decrypt_with_symmetric_key(in.get(), out.get(), iv, key);
-    }
-
-    void dump()
-    {
-        unsigned char iv[IV_LENGTH];
-        unsigned char key[SYMMETRIC_KEY_SIZE];
-
-        auto in = openIn(inFileName);
-        auto out = openOut(outFileName);
-
-        read_header(in.get(), iv);
-        read_symmetric_key(in.get(), key);
-
-        CryptoPP::Base64Encoder b64enc(new CryptoPP::FileSink(*out));
-        b64enc.Put(key, SYMMETRIC_KEY_SIZE);
-        b64enc.MessageEnd();
-    }
-
-    void decrypt_symmetric(const char *keyBase64)
-    {
-        size_t keyBase64Len = std::strlen(keyBase64);
-        if (keyBase64Len > (SYMMETRIC_KEY_SIZE * 4 / 3 + 2))
-        {
-            throw std::runtime_error("Invalid length of input key");
-        }
-
-        CryptoPP::Base64Decoder b64dec;
-        b64dec.Put(reinterpret_cast<const uint8_t *>(keyBase64), keyBase64Len);
-        b64dec.MessageEnd();
-
-        unsigned char key[SYMMETRIC_KEY_SIZE];
-        size_t key_length = b64dec.Get(reinterpret_cast<uint8_t *>(key), SYMMETRIC_KEY_SIZE);
-
-        if (key_length == SYMMETRIC_KEY_SIZE + 1)
-        {
-            // key was padded
-            --key_length;
-        }
-
-        if (key_length != SYMMETRIC_KEY_SIZE)
-        {
-            std::cerr << keyBase64 << " " << key_length << ":" << (SYMMETRIC_KEY_SIZE) << std::endl;
-            throw std::runtime_error("Invalid length of input key");
-        }
-
-        auto in = openIn(inFileName);
-        auto out = openOut(outFileName);
-
-        unsigned char iv[IV_LENGTH];
-        read_header(in.get(), iv);
-        skip_symmetric_key(in.get());
-        decrypt_with_symmetric_key(in.get(), out.get(), iv, key);
-    }
-};
-
-int _main(int argc, char **argv)
+void CDecrypt::decrypt_symmetric(const char *keyBase64)
 {
-    try
+    size_t keyBase64Len = std::strlen(keyBase64);
+    if (keyBase64Len > (SYMMETRIC_KEY_SIZE * 4 / 3 + 2))
     {
-        if (argc >= 2 && argc <= 3 && string(argv[1]) == string("--genkey"))
-        {
-            cerr << "Generating new key..." << endl;
-
-            CGenKey k((argc == 3) ? argv[2] : NULL);
-            k.genkey();
-            k.printkey();
-
-            return 0;
-        }
-
-        else if (argc >= 2 && argc <= 4 && string(argv[1]) == string("--publickey"))
-        {
-            cerr << "Converting private key to public..." << endl;
-
-            CConvertToPublicKey k((argc >= 3) ? argv[2] : NULL, (argc == 4) ? argv[3] : NULL);
-            k.convert();
-
-            return 0;
-        }
-
-        else if (argc >= 3 && argc <= 5 && string(argv[1]) == string("--encrypt"))
-        {
-            cerr << "Encrypting..." << endl;
-
-            CEncrypt k(argv[2], (argc >= 4) ? argv[3] : NULL, (argc == 5) ? argv[4] : NULL);
-            k.encrypt();
-
-            return 0;
-        }
-
-        else if (argc >= 3 && argc <= 5 && string(argv[1]) == string("--decrypt"))
-        {
-            cerr << "Decrypting..." << endl;
-
-            CDecrypt k(argv[2], (argc >= 4) ? argv[3] : NULL, (argc == 5) ? argv[4] : NULL);
-            k.decrypt();
-
-            return 0;
-        }
-
-        else if (argc >= 3 && argc <= 5 && string(argv[1]) == string("--dump-key"))
-        {
-            CDecrypt k(argv[2], (argc >= 4) ? argv[3] : NULL, (argc == 5) ? argv[4] : NULL);
-            k.dump();
-
-            return 0;
-        }
-
-        else if (argc >= 3 && argc <= 5 && string(argv[1]) == string("--decrypt-with-symkey"))
-        {
-            cerr << "Decrypting..." << endl;
-
-            CDecrypt k(nullptr, (argc >= 4) ? argv[3] : NULL, (argc == 5) ? argv[4] : NULL);
-            k.decrypt_symmetric(argv[2]);
-
-            return 0;
-        }
-
-        else
-        {
-            cerr << "One way encryptor (c) 2014,2023 by galets, https://github.com/galets/oneway-cpp, version " << VERSION << endl;
-            cerr << "Usage:" << endl;
-            cerr << "   oneway [--encrypt|--decrypt|--genkey|--publickey]" << endl;
-            cerr << "Example:" << endl;
-            cerr << "   oneway --genkey private.key" << endl;
-            cerr << "   oneway --publickey [private.key [public.key]]" << endl;
-            cerr << "   oneway --encrypt public.key [plaintext.txt [encrypted.ascr]]" << endl;
-            cerr << "   oneway --decrypt private.key [encrypted.ascr [plaintext.txt]]" << endl;
-            cerr << "   oneway --dump-key private.key [encrypted.ascr [key.base64]]" << endl;
-            cerr << "   oneway --decrypt-with-symkey symmetric-key-base64 [encrypted.ascr [plaintext.txt]]" << endl;
-            cerr << endl;
-            return 1;
-        }
+        throw std::runtime_error("Invalid length of input key");
     }
-    catch (const std::exception &ex)
+
+    CryptoPP::Base64Decoder b64dec;
+    b64dec.Put(reinterpret_cast<const uint8_t *>(keyBase64), keyBase64Len);
+    b64dec.MessageEnd();
+
+    unsigned char key[SYMMETRIC_KEY_SIZE];
+    size_t key_length = b64dec.Get(reinterpret_cast<uint8_t *>(key), SYMMETRIC_KEY_SIZE);
+
+    if (key_length == SYMMETRIC_KEY_SIZE + 1)
     {
-        cerr << "Error: " << ex.what() << endl;
-        return 1;
+        // key was padded
+        --key_length;
     }
+
+    if (key_length != SYMMETRIC_KEY_SIZE)
+    {
+        std::cerr << keyBase64 << " " << key_length << ":" << (SYMMETRIC_KEY_SIZE) << std::endl;
+        throw std::runtime_error("Invalid length of input key");
+    }
+
+    auto in = openIn(inFileName);
+    auto out = openOut(outFileName);
+
+    unsigned char iv[IV_LENGTH];
+    read_header(in.get(), iv);
+    skip_symmetric_key(in.get());
+    decrypt_with_symmetric_key(in.get(), out.get(), iv, key);
 }
