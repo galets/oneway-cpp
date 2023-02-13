@@ -1,4 +1,4 @@
-name: C/C++ CI
+name: Compile to native x64
 
 on:
     push:
@@ -35,14 +35,14 @@ jobs:
                   ./configure
 
             - name: Build Crypto++
-              run: make cryptopp
+              run: make static
 
             - name: Save Crypto++
               id: cache-cryptopp-save
               uses: actions/cache/save@v3
               with:
                   path: external/cryptopp
-                  key: native-cryptopp-${{ hashFiles('external/cryptopp/*.cpp', 'external/cryptopp/*.h', 'external/cryptopp-pem/*.cpp', 'external/cryptopp-pem/*.h') }}
+                  key: ${{ steps.cache-cryptopp.outputs.cache-primary-key }}
 
             - name: Build Project
               run: make
