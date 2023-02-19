@@ -1,5 +1,6 @@
 #include "oneway.h"
 #include "config.h"
+#include "build-number.h"
 
 int main(int argc, char **argv)
 {
@@ -66,18 +67,24 @@ int main(int argc, char **argv)
             return 0;
         }
 
+        else if (argc == 2 && string(argv[1]) == string("--version"))
+        {
+            cout << VERSION << "." << BUILD_NUMBER << endl;
+
+            return 0;
+        }
+
         else
         {
-            cerr << "One way encryptor (c) 2014,2023 by galets, https://github.com/galets/oneway-cpp, version " << VERSION << endl;
+            cerr << "One way encryptor (c) 2014,2023 by galets, https://github.com/galets/oneway-cpp, version " << VERSION << "." << BUILD_NUMBER << endl;
             cerr << "Usage:" << endl;
-            cerr << "   oneway [--encrypt|--decrypt|--genkey|--publickey]" << endl;
-            cerr << "Example:" << endl;
             cerr << "   oneway --genkey private.key" << endl;
             cerr << "   oneway --publickey [private.key [public.key]]" << endl;
             cerr << "   oneway --encrypt public.key [plaintext.txt [encrypted.ascr]]" << endl;
             cerr << "   oneway --decrypt private.key [encrypted.ascr [plaintext.txt]]" << endl;
             cerr << "   oneway --dump-key private.key [encrypted.ascr [key.base64]]" << endl;
             cerr << "   oneway --decrypt-with-symkey symmetric-key-base64 [encrypted.ascr [plaintext.txt]]" << endl;
+            cerr << "   oneway --version" << endl;
             cerr << endl;
             return 1;
         }
