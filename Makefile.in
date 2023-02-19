@@ -151,6 +151,18 @@ AM_V_CXXLD = $(am__v_CXXLD_@AM_V@)
 am__v_CXXLD_ = $(am__v_CXXLD_@AM_DEFAULT_V@)
 am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+AM_V_CC = $(am__v_CC_@AM_V@)
+am__v_CC_ = $(am__v_CC_@AM_DEFAULT_V@)
+am__v_CC_0 = @echo "  CC      " $@;
+am__v_CC_1 = 
+CCLD = $(CC)
+LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+AM_V_CCLD = $(am__v_CCLD_@AM_V@)
+am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
+am__v_CCLD_0 = @echo "  CCLD    " $@;
+am__v_CCLD_1 = 
 SOURCES = $(oneway_SOURCES) $(onewaytests_SOURCES)
 DIST_SOURCES = $(oneway_SOURCES) $(onewaytests_SOURCES)
 am__can_run_installinfo = \
@@ -496,15 +508,17 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-oneway_SOURCES = src/oneway.cpp src/main.cpp
+oneway_SOURCES = src/oneway.cpp src/main.cpp src/build-number.h
 oneway_CPPFLAGS = -Iexternal -Wno-deprecated-declarations
 oneway_LDADD = -Lexternal/cryptopp -lcryptopp
 oneway_DEPENDENCIES = cryptopp
-onewaytests_SOURCES = tests/main.cpp tests/unit-tests.cpp src/oneway.cpp
+onewaytests_SOURCES = tests/main.cpp tests/unit-tests.cpp src/oneway.cpp src/build-number.h
 onewaytests_CPPFLAGS = -Iexternal -Wno-deprecated-declarations -DTESTS ${GTEST_CFLAGS}
 onewaytests_LDADD = -Lexternal/cryptopp -lcryptopp ${GTEST_LIBS}
 onewaytests_DEPENDENCIES = cryptopp
-all: all-am
+BUILT_SOURCES = src/build-number.h cryptopp
+all: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) all-am
 
 .SUFFIXES:
 .SUFFIXES: .cpp .log .o .obj .test .test$(EXEEXT) .trs
@@ -1137,14 +1151,17 @@ distcleancheck: distclean
 	       exit 1; } >&2
 check-am: all-am
 	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
-check: check-am
+check: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) check-am
 all-am: Makefile $(PROGRAMS)
 installdirs:
 	for dir in "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
-install: install-am
-install-exec: install-exec-am
+install: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) install-am
+install-exec: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) install-exec-am
 install-data: install-data-am
 uninstall: uninstall-am
 
@@ -1180,6 +1197,7 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
+	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
 clean: clean-am
 
 clean-am: clean-binPROGRAMS clean-generic mostlyclean-am
@@ -1260,7 +1278,8 @@ ps-am:
 
 uninstall-am: uninstall-binPROGRAMS
 
-.MAKE: check-am install-am install-strip
+.MAKE: all check check-am install install-am install-exec \
+	install-strip
 
 .PHONY: CTAGS GTAGS TAGS all all-am am--depfiles am--refresh check \
 	check-TESTS check-am clean clean-binPROGRAMS clean-cscope \
@@ -1282,6 +1301,12 @@ uninstall-am: uninstall-binPROGRAMS
 
 .PRECIOUS: Makefile
 
+
+src/build-number.h: src/.build-number
+	@echo "// This is auto-gerenared file, do not modify" >src/build-number.h
+	@echo "//" >>src/build-number.h
+	@echo "" >>src/build-number.h
+	@echo "constexpr int BUILD_NUMBER = $(shell cat src/.build-number);" >>src/build-number.h
 
 .PHONY: cryptopp
 cryptopp:
