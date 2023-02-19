@@ -43,7 +43,7 @@ int main(int argc, char **argv)
             cerr << "Generating new key..." << endl;
 
             auto out = openOut((argc == 3) ? argv[2] : NULL);
-            oneway::genKey(out.get());
+            oneway::generatePrivateKey(out.get());
 
             return 0;
         }
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
             auto inKey = openIn(argv[2]);
             auto in = openIn((argc >= 4) ? argv[3] : NULL);
             auto out = openOut((argc == 5) ? argv[4] : NULL);
-            oneway::dump(inKey.get(), in.get(), out.get());
+            oneway::dumpSymmetricKey(inKey.get(), in.get(), out.get());
 
             return 0;
         }
@@ -102,7 +102,7 @@ int main(int argc, char **argv)
             auto inSymmetricKey = argv[2];
             auto in = openIn((argc >= 4) ? argv[3] : NULL);
             auto out = openOut((argc == 5) ? argv[4] : NULL);
-            oneway::decrypt_symmetric(inSymmetricKey, in.get(), out.get());
+            oneway::decryptWithSymmetricKey(inSymmetricKey, in.get(), out.get());
 
             return 0;
         }

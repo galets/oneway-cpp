@@ -136,18 +136,18 @@ namespace
 namespace oneway
 {
 
-    void genKey(std::ostream *out)
+    void generatePrivateKey(std::ostream *outPrivateKey)
     {
         CryptoPP::RSA::PrivateKey key;
         key.GenerateRandomWithKeySize(prng, KEY_SIZE);
-        storeKey(key, out);
+        storeKey(key, outPrivateKey);
     }
 
-    void convertPrivateToPublic(std::istream *in, std::ostream *out)
+    void convertPrivateToPublic(std::istream *inPrivateKey, std::ostream *outPublicKey)
     {
-        auto privKey = loadKey<CryptoPP::RSA::PrivateKey>(in);
+        auto privKey = loadKey<CryptoPP::RSA::PrivateKey>(inPrivateKey);
         CryptoPP::RSA::PublicKey pubKey(privKey);
-        storeKey(pubKey, out);
+        storeKey(pubKey, outPublicKey);
     }
 
     void encrypt(std::istream *inPublicKey, std::istream *in, std::ostream *out)
@@ -190,10 +190,14 @@ namespace oneway
         stf.MessageEnd();
     }
 
-    static void read_header(std::istream *is, unsigned char iv[])
+    static void read_header(std::istream *is, unsigned char iv[IV_LENGTH])
     {
         char header[HEADER_SIZE] = {0};
         readExact(is, header, sizeof(header));
+        if (std::string(header, sizeof(header)) != HEADER)
+        {
+            throw std::runtime_error("bad header");
+        }
         readExact(is, iv, IV_LENGTH);
     }
 
@@ -222,7 +226,7 @@ namespace oneway
         readExact(is, key_encrypted, sizeof(key_encrypted));
     }
 
-    static void decrypt_with_symmetric_key(std::istream *is, std::ostream *os, unsigned char iv[IV_LENGTH], unsigned char key[SYMMETRIC_KEY_SIZE])
+    static void decrypt_with_symmetric_key(std::istream *is, std::ostream *os, const unsigned char iv[IV_LENGTH], const unsigned char key[SYMMETRIC_KEY_SIZE])
     {
         CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption symmetricDecryptor;
         symmetricDecryptor.SetKeyWithIV(key, SYMMETRIC_KEY_SIZE, iv, IV_LENGTH);
@@ -249,7 +253,7 @@ namespace oneway
         decrypt_with_symmetric_key(in, out, iv, key);
     }
 
-    void dump(std::istream *inPrivateKey, std::istream *in, std::ostream *out)
+    void dumpSymmetricKey(std::istream *inPrivateKey, std::istream *in, std::ostream *out)
     {
         unsigned char iv[IV_LENGTH];
         unsigned char key[SYMMETRIC_KEY_SIZE];
@@ -264,7 +268,7 @@ namespace oneway
         b64enc.MessageEnd();
     }
 
-    void decrypt_symmetric(const char *symmetricKeyBase64, std::istream *in, std::ostream *out)
+    void decryptWithSymmetricKey(const char *symmetricKeyBase64, std::istream *in, std::ostream *out)
     {
         size_t keyBase64Len = std::strlen(symmetricKeyBase64);
         if (keyBase64Len > (SYMMETRIC_KEY_SIZE * 4 / 3 + 2))
