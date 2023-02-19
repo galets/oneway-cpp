@@ -1,9 +1,7 @@
 name: Version Increment
-
 on:
     push:
-        branches:
-            - master
+        branches: ["master"]
         paths-ignore:
             - src/.build-number
 
