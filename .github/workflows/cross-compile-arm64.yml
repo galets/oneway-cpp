@@ -50,4 +50,4 @@ jobs:
                   key: ${{ steps.cache-cryptopp.outputs.cache-primary-key }}
 
             - name: Build Project
-              run: make oneway
+              run: make
