@@ -13,15 +13,13 @@ jobs:
 
         steps:
             - uses: actions/checkout@v3
-              with:
-                  token: ${{ secrets.GITHUB_TOKEN_ACTION }}
 
             - name: Bump version and push tag
               run: |
-                  git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-                  git config user.name "$GITHUB_ACTOR"
-                  BUILDNUM=$(($(cat src/.build-number) + 1)
+                  git config user.email "github_robot@users.noreply.github.com"
+                  git config user.name "github robot"
+                  BUILDNUM=$(($(cat src/.build-number) + 1))
                   echo "$BUILDNUM" >src/.build-number
                   git add src/.build-number
                   git commit -m "Increment build number to $BUILDNUM"
-                  git push "https://$GITHUB_ACTOR:${{ secrets.ACCESS_TOKEN }}@github.com/$GITHUB_REPOSITORY.git"
+                  git push
