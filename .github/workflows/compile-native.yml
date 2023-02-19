@@ -2,6 +2,8 @@ name: Compile to native x64
 on:
     push:
         branches: ["master"]
+        paths-ignore:
+            - src/.build-number
     pull_request:
         branches: ["master"]
     workflow_run:

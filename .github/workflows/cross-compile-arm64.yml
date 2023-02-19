@@ -2,6 +2,8 @@ name: Cross Compile to ARM64
 on:
     push:
         branches: ["master"]
+        paths-ignore:
+            - src/.build-number
     workflow_run:
         workflows: ["Version Increment"]
         types: ["completed"]
