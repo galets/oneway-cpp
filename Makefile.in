@@ -443,6 +443,7 @@ INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
@@ -514,9 +515,9 @@ oneway_LDADD = -Lexternal/cryptopp -lcryptopp
 oneway_DEPENDENCIES = cryptopp
 onewaytests_SOURCES = tests/main.cpp tests/unit-tests.cpp src/oneway.cpp src/build-number.h
 onewaytests_CPPFLAGS = -Iexternal -Wno-deprecated-declarations -DTESTS ${GTEST_CFLAGS}
-onewaytests_LDADD = -Lexternal/cryptopp -lcryptopp ${GTEST_LIBS}
-onewaytests_DEPENDENCIES = cryptopp
-BUILT_SOURCES = src/build-number.h cryptopp
+onewaytests_LDADD = -Lexternal/cryptopp -lcryptopp ${GTEST_LIBS} tests/vectors.o
+onewaytests_DEPENDENCIES = cryptopp tests/vectors.o
+BUILT_SOURCES = tests/vectors.o src/build-number.h cryptopp
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -1301,6 +1302,9 @@ uninstall-am: uninstall-binPROGRAMS
 
 .PRECIOUS: Makefile
 
+
+tests/vectors.o: tests/test-vectors/*
+	$(LD) -r -b binary -o tests/vectors.o tests/test-vectors/*
 
 src/build-number.h: src/.build-number
 	@echo "// This is auto-gerenared file, do not modify" >src/build-number.h

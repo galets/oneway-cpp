@@ -6,11 +6,14 @@ oneway_DEPENDENCIES = cryptopp
 
 onewaytests_SOURCES = tests/main.cpp tests/unit-tests.cpp src/oneway.cpp src/build-number.h
 onewaytests_CPPFLAGS = -Iexternal -Wno-deprecated-declarations -DTESTS ${GTEST_CFLAGS}
-onewaytests_LDADD = -Lexternal/cryptopp -lcryptopp ${GTEST_LIBS}
-onewaytests_DEPENDENCIES = cryptopp
+onewaytests_LDADD = -Lexternal/cryptopp -lcryptopp ${GTEST_LIBS} tests/vectors.o
+onewaytests_DEPENDENCIES = cryptopp tests/vectors.o
 
 TESTS = onewaytests tests/general-invoke.sh
-BUILT_SOURCES = src/build-number.h cryptopp
+BUILT_SOURCES = tests/vectors.o src/build-number.h cryptopp
+
+tests/vectors.o: tests/test-vectors/*
+	$(LD) -r -b binary -o tests/vectors.o tests/test-vectors/*
 
 src/build-number.h: src/.build-number
 	@echo "// This is auto-gerenared file, do not modify" >src/build-number.h
