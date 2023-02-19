@@ -162,7 +162,9 @@ namespace oneway
         auto keySize = publicKey.GetModulus().BitCount();
         if (keySize != KEY_SIZE)
         {
-            throw std::runtime_error(std::string("Invalid key size: " + keySize));
+            std::stringstream ss;
+            ss << "Invalid key size: " << keySize;
+            throw std::runtime_error(ss.str());
         }
 
         CryptoPP::RSAES_PKCS1v15_Encryptor publicKeyEncryptor(publicKey);
@@ -209,7 +211,9 @@ namespace oneway
         auto keySize = privateKey.GetModulus().BitCount();
         if (keySize != KEY_SIZE)
         {
-            throw std::runtime_error(std::string("Invalid key size: " + keySize));
+            std::stringstream ss;
+            ss << "Invalid key size: " << keySize;
+            throw std::runtime_error(ss.str());
         }
 
         CryptoPP::RSAES_PKCS1v15_Decryptor decryptor(privateKey);
@@ -253,7 +257,7 @@ namespace oneway
         decrypt_with_symmetric_key(in, out, iv, key);
     }
 
-    void dumpSymmetricKey(std::istream *inPrivateKey, std::istream *in, std::ostream *out)
+    void dumpSymmetricKey(std::istream *inPrivateKey, std::istream *in, std::ostream *outSymmetricKey)
     {
         unsigned char iv[IV_LENGTH];
         unsigned char key[SYMMETRIC_KEY_SIZE];
@@ -263,37 +267,23 @@ namespace oneway
         read_header(in, iv);
         read_symmetric_key(privateKey, in, key);
 
-        CryptoPP::Base64Encoder b64enc(new CryptoPP::FileSink(*out));
+        CryptoPP::Base64Encoder b64enc(new CryptoPP::FileSink(*outSymmetricKey));
         b64enc.Put(key, SYMMETRIC_KEY_SIZE);
         b64enc.MessageEnd();
     }
 
-    void decryptWithSymmetricKey(const char *symmetricKeyBase64, std::istream *in, std::ostream *out)
+    void decryptWithSymmetricKey(std::istream *inSymmetricKey, std::istream *in, std::ostream *out)
     {
-        size_t keyBase64Len = std::strlen(symmetricKeyBase64);
-        if (keyBase64Len > (SYMMETRIC_KEY_SIZE * 4 / 3 + 2))
+        CryptoPP::FileSource b64dec(*inSymmetricKey, true, new CryptoPP::Base64Decoder);
+        if (b64dec.MaxRetrievable() != SYMMETRIC_KEY_SIZE)
         {
-            throw std::runtime_error("Invalid length of input key");
+            std::stringstream ss;
+            ss << "Invalid length of input key: " << b64dec.MaxRetrievable();
+            throw std::runtime_error(ss.str());
         }
-
-        CryptoPP::Base64Decoder b64dec;
-        b64dec.Put(reinterpret_cast<const uint8_t *>(symmetricKeyBase64), keyBase64Len);
-        b64dec.MessageEnd();
 
         unsigned char key[SYMMETRIC_KEY_SIZE];
         size_t key_length = b64dec.Get(reinterpret_cast<uint8_t *>(key), SYMMETRIC_KEY_SIZE);
-
-        if (key_length == SYMMETRIC_KEY_SIZE + 1)
-        {
-            // key was padded
-            --key_length;
-        }
-
-        if (key_length != SYMMETRIC_KEY_SIZE)
-        {
-            std::cerr << symmetricKeyBase64 << " " << key_length << ":" << (SYMMETRIC_KEY_SIZE) << std::endl;
-            throw std::runtime_error("Invalid length of input key");
-        }
 
         unsigned char iv[IV_LENGTH];
         read_header(in, iv);

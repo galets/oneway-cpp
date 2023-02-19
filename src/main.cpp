@@ -1,6 +1,7 @@
 #include <memory>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 #include "oneway.h"
 #include "config.h"
@@ -99,10 +100,11 @@ int main(int argc, char **argv)
         {
             cerr << "Decrypting with symmetric key..." << endl;
 
-            auto inSymmetricKey = argv[2];
+            auto symmetricKey = std::string(argv[2]);
+            std::stringstream inSymmetricKey(symmetricKey);
             auto in = openIn((argc >= 4) ? argv[3] : NULL);
             auto out = openOut((argc == 5) ? argv[4] : NULL);
-            oneway::decryptWithSymmetricKey(inSymmetricKey, in.get(), out.get());
+            oneway::decryptWithSymmetricKey(&inSymmetricKey, in.get(), out.get());
 
             return 0;
         }
