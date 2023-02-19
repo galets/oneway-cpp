@@ -52,4 +52,6 @@ jobs:
                   key: ${{ steps.cache-cryptopp.outputs.cache-primary-key }}
 
             - name: Build Project
-              run: make
+              run: |
+                  make src/build-number.h
+                  make oneway
