@@ -73,10 +73,10 @@ GJOnTW4jdrOKyRyW1FKJlJ4jjaIpb/6HdoX3nkmUzpYl9cM84xeVTbsCAwEAAQ==
 -----END RSA PUBLIC KEY-----
 )EOF";
 
-    std::shared_ptr<std::istream> ssIn(new std::stringstream(PrivateKey));
-    std::shared_ptr<std::stringstream> ssOut(new std::stringstream);
-    CryptoPP::RSA::PublicKey pubKey(loadKey<CryptoPP::RSA::PrivateKey>(ssIn));
-    storeKey<CryptoPP::RSA::PublicKey>(pubKey, ssOut);
+    std::stringstream in(PrivateKey);
+    std::stringstream out;
 
-    EXPECT_EQ(PublicKey, ssOut->str());
+    oneway::convertPrivateToPublic(&in, &out);
+
+    EXPECT_EQ(PublicKey, out.str());
 }

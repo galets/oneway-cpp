@@ -1,6 +1,36 @@
+#include <memory>
+#include <fstream>
+#include <iostream>
+
 #include "oneway.h"
 #include "config.h"
 #include "build-number.h"
+
+template <typename T>
+struct Noop
+{
+    void operator()(T *p) const
+    {
+    }
+};
+
+std::shared_ptr<std::ostream> openOut(const char *name)
+{
+    if (nullptr == name)
+    {
+        return std::shared_ptr<std::ostream>(&std::cout, Noop<std::ostream>());
+    }
+    return std::shared_ptr<std::ostream>(new std::ofstream(name, std::ios_base::binary));
+}
+
+std::shared_ptr<std::istream> openIn(const char *name)
+{
+    if (nullptr == name)
+    {
+        return std::shared_ptr<std::istream>(&std::cin, Noop<std::istream>());
+    }
+    return std::shared_ptr<std::istream>(new std::ifstream(name, std::ios_base::binary));
+}
 
 int main(int argc, char **argv)
 {
@@ -12,9 +42,8 @@ int main(int argc, char **argv)
         {
             cerr << "Generating new key..." << endl;
 
-            CGenKey k((argc == 3) ? argv[2] : NULL);
-            k.genkey();
-            k.printkey();
+            auto out = openOut((argc == 3) ? argv[2] : NULL);
+            oneway::genKey(out.get());
 
             return 0;
         }
@@ -23,8 +52,9 @@ int main(int argc, char **argv)
         {
             cerr << "Converting private key to public..." << endl;
 
-            CConvertToPublicKey k((argc >= 3) ? argv[2] : NULL, (argc == 4) ? argv[3] : NULL);
-            k.convert();
+            auto in = openIn((argc >= 3) ? argv[2] : NULL);
+            auto out = openOut((argc == 4) ? argv[3] : NULL);
+            oneway::convertPrivateToPublic(in.get(), out.get());
 
             return 0;
         }
@@ -33,8 +63,10 @@ int main(int argc, char **argv)
         {
             cerr << "Encrypting..." << endl;
 
-            CEncrypt k(argv[2], (argc >= 4) ? argv[3] : NULL, (argc == 5) ? argv[4] : NULL);
-            k.encrypt();
+            auto inKey = openIn(argv[2]);
+            auto in = openIn((argc >= 4) ? argv[3] : NULL);
+            auto out = openOut((argc == 5) ? argv[4] : NULL);
+            oneway::encrypt(inKey.get(), in.get(), out.get());
 
             return 0;
         }
@@ -43,26 +75,34 @@ int main(int argc, char **argv)
         {
             cerr << "Decrypting..." << endl;
 
-            CDecrypt k(argv[2], (argc >= 4) ? argv[3] : NULL, (argc == 5) ? argv[4] : NULL);
-            k.decrypt();
+            auto inKey = openIn(argv[2]);
+            auto in = openIn((argc >= 4) ? argv[3] : NULL);
+            auto out = openOut((argc == 5) ? argv[4] : NULL);
+            oneway::decrypt(inKey.get(), in.get(), out.get());
 
             return 0;
         }
 
         else if (argc >= 3 && argc <= 5 && string(argv[1]) == string("--dump-key"))
         {
-            CDecrypt k(argv[2], (argc >= 4) ? argv[3] : NULL, (argc == 5) ? argv[4] : NULL);
-            k.dump();
+            cerr << "Dumping symmetric key..." << endl;
+
+            auto inKey = openIn(argv[2]);
+            auto in = openIn((argc >= 4) ? argv[3] : NULL);
+            auto out = openOut((argc == 5) ? argv[4] : NULL);
+            oneway::dump(inKey.get(), in.get(), out.get());
 
             return 0;
         }
 
         else if (argc >= 3 && argc <= 5 && string(argv[1]) == string("--decrypt-with-symkey"))
         {
-            cerr << "Decrypting..." << endl;
+            cerr << "Decrypting with symmetric key..." << endl;
 
-            CDecrypt k(nullptr, (argc >= 4) ? argv[3] : NULL, (argc == 5) ? argv[4] : NULL);
-            k.decrypt_symmetric(argv[2]);
+            auto inSymmetricKey = argv[2];
+            auto in = openIn((argc >= 4) ? argv[3] : NULL);
+            auto out = openOut((argc == 5) ? argv[4] : NULL);
+            oneway::decrypt_symmetric(inSymmetricKey, in.get(), out.get());
 
             return 0;
         }
