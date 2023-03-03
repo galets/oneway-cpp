@@ -41,10 +41,15 @@ int main(int argc, char **argv)
     {
         if (argc >= 2 && argc <= 3 && string(argv[1]) == string("--genkey"))
         {
-            cerr << "Generating new key..." << endl;
+            cerr << "Generating new key...";
 
             auto out = openOut((argc == 3) ? argv[2] : NULL);
-            oneway::generatePrivateKey(out.get());
+            // clang-format off
+            oneway::generatePrivateKey(out.get(), [](size_t n)
+            {
+                if (0 != n) cerr << "."; else cerr << endl;
+            });
+            // clang-format on
 
             return 0;
         }

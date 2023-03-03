@@ -5,7 +5,8 @@ oneway_LDADD = -Lexternal/cryptopp -lcryptopp
 oneway_DEPENDENCIES = cryptopp
 
 onewaytests_SOURCES = tests/main.cpp tests/unit-tests.cpp src/oneway.cpp src/build-number.h
-onewaytests_CPPFLAGS = -Iexternal -Wno-deprecated-declarations -DTESTS ${GTEST_CFLAGS}
+onewaytests_CPPFLAGS = -Og -Iexternal -Wno-deprecated-declarations -DTESTS ${GTEST_CFLAGS}
+onewaytests_LDFLAGS = -ggdb
 onewaytests_LDADD = -Lexternal/cryptopp -lcryptopp ${GTEST_LIBS} tests/vectors.o
 onewaytests_DEPENDENCIES = cryptopp tests/vectors.o
 
