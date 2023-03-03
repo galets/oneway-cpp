@@ -52,3 +52,19 @@ TEST(PEM, Decrypt)
 
     EXPECT_EQ(plainText, out.str());
 }
+
+TEST(PEM, GenKeyGeneratesCallbacks)
+{
+    std::stringstream inKey;
+    std::vector<size_t> callbacks;
+
+    // clang-format off
+    oneway::generatePrivateKey(&inKey, [&](size_t n)
+    {
+        callbacks.push_back(n);
+    });
+    // clang-format on
+
+    EXPECT_LT(1, callbacks.size());
+    EXPECT_EQ(0, *callbacks.rbegin());
+}

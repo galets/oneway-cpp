@@ -136,10 +136,77 @@ namespace
 namespace oneway
 {
 
-    void generatePrivateKey(std::ostream *outPrivateKey)
+    class CallbackRng : public CryptoPP::RandomNumberGenerator
     {
+        CryptoPP::RandomNumberGenerator &_rng;
+        std::function<void(size_t)> _progress;
+        size_t current = 0;
+
+        void callback(size_t increment)
+        {
+            if (0 != increment)
+            {
+                current += increment;
+                _progress(current);
+            }
+        }
+
+    public:
+        CallbackRng(CryptoPP::RandomNumberGenerator &rng, std::function<void(size_t)> progress) : _rng(rng), _progress(progress) {}
+
+        void IncorporateEntropy(const CryptoPP::byte *input, size_t length) override
+        {
+            _rng.IncorporateEntropy(input, length);
+        }
+
+        bool CanIncorporateEntropy() const override
+        {
+            return _rng.CanIncorporateEntropy();
+        }
+
+        CryptoPP::byte GenerateByte() override
+        {
+            callback(sizeof(CryptoPP::byte));
+            return _rng.GenerateByte();
+        }
+
+        unsigned int GenerateBit() override
+        {
+            return _rng.GenerateBit();
+        }
+
+        CryptoPP::word32 GenerateWord32(CryptoPP::word32 min = 0, CryptoPP::word32 max = 0xffffffffUL) override
+        {
+            callback(sizeof(CryptoPP::word32));
+            return _rng.GenerateWord32(min, max);
+        }
+
+        void GenerateBlock(CryptoPP::byte *output, size_t size) override
+        {
+            callback(size);
+            _rng.GenerateBlock(output, size);
+        }
+
+        void GenerateIntoBufferedTransformation(CryptoPP::BufferedTransformation &target, const std::string &channel, CryptoPP::lword length) override
+        {
+            callback(length);
+            _rng.GenerateIntoBufferedTransformation(target, channel, length);
+        }
+
+        void DiscardBytes(size_t n) override
+        {
+            callback(n);
+            _rng.DiscardBytes(n);
+        }
+    };
+
+    void generatePrivateKey(std::ostream *outPrivateKey, std::function<void(size_t)> progress)
+    {
+        CallbackRng cbrng(prng, progress);
+
         CryptoPP::RSA::PrivateKey key;
-        key.GenerateRandomWithKeySize(prng, KEY_SIZE);
+        key.GenerateRandomWithKeySize(cbrng, KEY_SIZE);
+        progress(0);
         storeKey(key, outPrivateKey);
     }
 
