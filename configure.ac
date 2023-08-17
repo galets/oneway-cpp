@@ -1,6 +1,8 @@
 AC_INIT([oneway], [1.0])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 
+LT_INIT
+
 AC_PROG_CXX
 AC_CHECK_PROG(LD, ld, ld, false)
 if test "$LD" = "false"; then

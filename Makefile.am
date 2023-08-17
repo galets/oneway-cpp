@@ -4,6 +4,13 @@ oneway_CPPFLAGS = -Iexternal -Wno-deprecated-declarations
 oneway_LDADD = -Lexternal/cryptopp -lcryptopp
 oneway_DEPENDENCIES = cryptopp
 
+lib_LTLIBRARIES = liboneway.la
+liboneway_la_SOURCES = src/oneway.cpp src/build-number.h
+liboneway_la_LIBADD = -Lexternal/cryptopp -lcryptopp
+liboneway_la_CPPFLAGS = -Iexternal -Wno-deprecated-declarations
+liboneway_la_LDFLAGS = -version-info 0:0:0
+liboneway_la_DEPENDENCIES = cryptopp
+
 onewaytests_SOURCES = tests/main.cpp tests/unit-tests.cpp src/oneway.cpp src/build-number.h
 onewaytests_CPPFLAGS = -Og -Iexternal -Wno-deprecated-declarations -DTESTS ${GTEST_CFLAGS}
 onewaytests_LDFLAGS = -ggdb
