@@ -23,3 +23,10 @@ oneway.cbp
 stamp-h1
 onewaytests
 build-number.h
+.libs/liboneway.a
+.libs/liboneway.la
+.libs/liboneway.lai
+.libs/liboneway.so
+.libs/liboneway.so.0
+.libs/liboneway.so.0.0.0
+liboneway.la

@@ -231,7 +231,7 @@ namespace oneway
         {
             std::stringstream ss;
             ss << "Invalid key size: " << keySize;
-            throw std::runtime_error(ss.str());
+            throw std::runtime_error(std::string(ss.str()));
         }
 
         CryptoPP::RSAES_PKCS1v15_Encryptor publicKeyEncryptor(publicKey);
