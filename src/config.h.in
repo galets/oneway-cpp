@@ -1,8 +1,5 @@
 /* src/config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* define if the compiler supports basic C++20 syntax */
-#undef HAVE_CXX20
-
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 

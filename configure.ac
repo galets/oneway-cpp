@@ -10,7 +10,7 @@ if test "$LD" = "false"; then
 fi
 
 AC_CONFIG_MACRO_DIR([m4])
-AX_CXX_COMPILE_STDCXX([20], [], [mandatory])
+#AX_CXX_COMPILE_STDCXX([20], [], [mandatory])
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_HEADERS([src/config.h])
 
