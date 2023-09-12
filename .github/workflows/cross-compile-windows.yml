@@ -1,0 +1,62 @@
+name: Cross Compile to Windows
+on:
+    push:
+        branches: ["master"]
+        paths-ignore:
+            - src/.build-number
+    workflow_run:
+        workflows: ["Version Increment"]
+        types: ["completed"]
+
+env:
+    CROSS_TRIPLE: x86_64-w64-mingw32
+    CC: x86_64-w64-mingw32-gcc
+    CXX: x86_64-w64-mingw32-g++
+    CXXFLAGS: "-static"
+    LD: x86_64-w64-mingw32-ld
+
+jobs:
+    build:
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v3
+
+            - name: Set up submodules
+              run: |
+                  git submodule init
+                  git submodule update
+
+            - name: Restore Crypto++
+              id: cache-cryptopp
+              uses: actions/cache/restore@v3
+              with:
+                  path: external/cryptopp
+                  key: aarch64-cryptopp-${{ hashFiles('external/cryptopp/*.cpp', 'external/cryptopp/*.h', 'external/cryptopp-pem/*.cpp', 'external/cryptopp-pem/*.h') }}
+
+            - name: Set up build environment
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y build-essential libgtest-dev mingw-w64
+
+            - name: Configure build
+              run: |
+                  ./configure --host=${CROSS_TRIPLE}
+
+            - name: Build Crypto++
+              run: make cryptopp
+
+            - name: Save Crypto++
+              id: cache-cryptopp-save
+              uses: actions/cache/save@v3
+              with:
+                  path: external/cryptopp
+                  key: ${{ steps.cache-cryptopp.outputs.cache-primary-key }}
+
+            - name: Build Project
+              run: |
+                  make src/build-number.h
+                  make oneway.exe
+                  cp /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libstdc++-6.dll .
+                  cp /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libgcc_s_seh-1.dll .
