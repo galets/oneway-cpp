@@ -30,3 +30,6 @@ build-number.h
 .libs/liboneway.so.0
 .libs/liboneway.so.0.0.0
 liboneway.la
+libgcc_s_seh-1.dll
+libstdc++-6.dll
+oneway.exe
