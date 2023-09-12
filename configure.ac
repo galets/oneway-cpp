@@ -14,6 +14,6 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_HEADERS([src/config.h])
 
-PKG_CHECK_MODULES([GTEST], [gtest >= 1.10.0], [], [AC_MSG_ERROR([Google Test library not found])])
+#PKG_CHECK_MODULES([GTEST], [gtest >= 1.10.0], [], [AC_MSG_ERROR([Google Test library not found])])
 
 AC_OUTPUT
