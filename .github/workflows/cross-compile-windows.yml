@@ -12,7 +12,7 @@ env:
     CROSS_TRIPLE: x86_64-w64-mingw32
     CC: x86_64-w64-mingw32-gcc
     CXX: x86_64-w64-mingw32-g++
-    CXXFLAGS: "-static"
+    CXXFLAGS: "-static -static-libgcc -static-libstdc++"
     LD: x86_64-w64-mingw32-ld
 
 jobs:
@@ -58,5 +58,3 @@ jobs:
               run: |
                   make src/build-number.h
                   make oneway.exe
-                  cp /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libstdc++-6.dll .
-                  cp /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libgcc_s_seh-1.dll .
