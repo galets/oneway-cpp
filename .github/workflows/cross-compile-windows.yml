@@ -1,4 +1,4 @@
-name: Cross Compile to ARM64
+name: Cross Compile to Windows
 on:
     push:
         branches: ["master"]
