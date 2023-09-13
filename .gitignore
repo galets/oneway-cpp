@@ -33,3 +33,4 @@ liboneway.la
 libgcc_s_seh-1.dll
 libstdc++-6.dll
 oneway.exe
+libtool
