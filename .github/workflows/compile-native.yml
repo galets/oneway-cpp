@@ -60,5 +60,5 @@ jobs:
 
             - uses: actions/upload-artifact@v3
               with:
-                name: oneway-v1.0.${{ steps.getbuildno.output.buildno }}-linux-x64
+                name: oneway-v1.0.${{ steps.getbuildno.outputs.buildno }}-linux-x64
                 path: oneway
