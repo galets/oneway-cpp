@@ -53,3 +53,12 @@ jobs:
 
             - name: Run tests
               run: make check
+
+            - name: Read build number from file
+              id: getbuildno
+              run: echo "buildno=$(cat src/.build-number)" >> "$GITHUB_OUTPUT"
+
+            - uses: actions/upload-artifact@v3
+              with:
+                name: oneway-v1.0.${{ steps.getbuildno.outputs.buildno }}-linux-x64
+                path: oneway
