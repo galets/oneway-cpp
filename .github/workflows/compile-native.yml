@@ -53,3 +53,13 @@ jobs:
 
             - name: Run tests
               run: make check
+
+            - name: Make archive
+              run: |
+                BUILDNUM=$(cat src/.build-number)
+                tar -cvzf oneway-1.0.$BUILDNUM-linux.tgz oneway
+
+            - uses: actions/upload-artifact@v3
+              with:
+                name: package
+                path: oneway-1.0.*-linux.tgz
