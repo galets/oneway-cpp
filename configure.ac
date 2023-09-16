@@ -10,10 +10,8 @@ if test "$LD" = "false"; then
 fi
 
 AC_CONFIG_MACRO_DIR([m4])
-#AX_CXX_COMPILE_STDCXX([20], [], [mandatory])
+AX_CXX_COMPILE_STDCXX([17], [], [mandatory])
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_HEADERS([src/config.h])
-
-PKG_CHECK_MODULES([GTEST], [gtest >= 1.10.0], [], [AC_MSG_ERROR([Google Test library not found])])
 
 AC_OUTPUT

@@ -1,0 +1,60 @@
+name: Compile on Macintosh
+on:
+    push:
+        branches: ["master", "build-mac"]
+        paths-ignore:
+            - src/.build-number
+    pull_request:
+        branches: ["master"]
+    workflow_run:
+        workflows: ["Version Increment"]
+        types: ["completed"]
+
+jobs:
+    build:
+        runs-on: macos-12
+        steps:
+            - uses: actions/checkout@v3
+
+            - name: Set up submodules
+              run: |
+                  git submodule init
+                  git submodule update
+
+            - name: Restore Crypto++
+              id: cache-cryptopp
+              uses: actions/cache/restore@v3
+              with:
+                  path: external/cryptopp
+                  key: mac-cryptopp-${{ hashFiles('external/cryptopp/*.cpp', 'external/cryptopp/*.h', 'external/cryptopp-pem/*.cpp', 'external/cryptopp-pem/*.h') }}
+
+            - name: Configure build
+              run: |
+                  ./configure
+
+            - name: Build Crypto++
+              run: make cryptopp
+
+            - name: Save Crypto++
+              id: cache-cryptopp-save
+              uses: actions/cache/save@v3
+              with:
+                  path: external/cryptopp
+                  key: ${{ steps.cache-cryptopp.outputs.cache-primary-key }}
+
+            - name: Build Project
+              run: |
+                  make src/build-number.h
+                  make oneway
+
+            - name: Run general tests
+              run: tests/general-invoke.sh
+
+            - name: Read build number from file
+              id: getbuildno
+              run: echo "buildno=$(cat src/.build-number)" >> "$GITHUB_OUTPUT"
+
+            - uses: actions/upload-artifact@v3
+              with:
+                name: oneway-v1.0.${{ steps.getbuildno.outputs.buildno }}-mac
+                path: oneway

@@ -31,5 +31,5 @@ src/build-number.h: src/.build-number
 
 .PHONY: cryptopp
 cryptopp:
-	cp --update external/cryptopp-pem/* external/cryptopp/
+	rsync --update external/cryptopp-pem/* external/cryptopp/
 	$(MAKE) --directory external/cryptopp static
