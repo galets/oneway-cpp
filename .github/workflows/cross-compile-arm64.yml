@@ -58,3 +58,14 @@ jobs:
               run: |
                   make src/build-number.h
                   make oneway
+
+            - name: Read build number from file
+              id: getbuildno
+              run: |
+                echo "buildno=$(cat src/.build-number)" >> "$GITHUB_ENV"
+                echo "CROSS_TRIPLE=$CROSS_TRIPLE" >> "$GITHUB_ENV"
+
+            - uses: actions/upload-artifact@v3
+              with:
+                name: oneway-v1.0.${{ buildno }}-${{ CROSS_TRIPLE }}
+                path: oneway
