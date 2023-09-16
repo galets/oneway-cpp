@@ -14,7 +14,7 @@ liboneway_la_DEPENDENCIES = cryptopp
 onewaytests_SOURCES = tests/main.cpp tests/unit-tests.cpp src/oneway.cpp src/build-number.h
 onewaytests_CPPFLAGS = -Og -Iexternal -Wno-deprecated-declarations -DTESTS ${GTEST_CFLAGS}
 onewaytests_LDFLAGS = -ggdb
-onewaytests_LDADD = -Lexternal/cryptopp -lcryptopp ${GTEST_LIBS} tests/vectors.o
+onewaytests_LDADD = -Lexternal/cryptopp -lcryptopp -lgtest ${GTEST_LIBS} tests/vectors.o
 onewaytests_DEPENDENCIES = cryptopp tests/vectors.o
 
 TESTS = onewaytests tests/general-invoke.sh
@@ -31,5 +31,5 @@ src/build-number.h: src/.build-number
 
 .PHONY: cryptopp
 cryptopp:
-	cp --update external/cryptopp-pem/* external/cryptopp/
+	rsync --update external/cryptopp-pem/* external/cryptopp/
 	$(MAKE) --directory external/cryptopp static
