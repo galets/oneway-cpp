@@ -48,7 +48,7 @@ jobs:
                   PATH=${HOME}/.local/lib/cross-pi-0/cross-pi-gcc-10.3.0-0/bin:${PATH} ./configure --host=${CROSS_TRIPLE}
 
             - name: Build Crypto++
-              run: ${HOME}/.local/lib/cross-pi-0/cross-pi-gcc-10.3.0-0/bin:${PATH} make cryptopp
+              run: PATH=${HOME}/.local/lib/cross-pi-0/cross-pi-gcc-10.3.0-0/bin:${PATH} make cryptopp
 
             - name: Save Crypto++
               id: cache-cryptopp-save
@@ -59,8 +59,8 @@ jobs:
 
             - name: Build Project
               run: |
-                  ${HOME}/.local/lib/cross-pi-0/cross-pi-gcc-10.3.0-0/bin:${PATH} make src/build-number.h
-                  ${HOME}/.local/lib/cross-pi-0/cross-pi-gcc-10.3.0-0/bin:${PATH} make oneway
+                  PATH=${HOME}/.local/lib/cross-pi-0/cross-pi-gcc-10.3.0-0/bin:${PATH} make src/build-number.h
+                  PATH=${HOME}/.local/lib/cross-pi-0/cross-pi-gcc-10.3.0-0/bin:${PATH} make oneway
 
             - name: Read build number from file
               id: getbuildno
