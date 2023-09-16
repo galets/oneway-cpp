@@ -40,16 +40,17 @@ jobs:
                   set -e
                   mkdir -p $HOME/.local/lib/cross-pi-0
                   cd $HOME/.local/lib/cross-pi-0
-                  wget https://sourceforge.net/projects/raspberry-pi-cross-compilers/files/Raspberry%20Pi%20GCC%20Cross-Compiler%20Toolchains/Bullseye/GCC%2010.3.0/Raspberry%20Pi%201%2C%20Zero/cross-gcc-10.3.0-pi_0-1.tar.gz/download -O cross-pi-0.tar.gz
+                  wget --quiet https://sourceforge.net/projects/raspberry-pi-cross-compilers/files/Raspberry%20Pi%20GCC%20Cross-Compiler%20Toolchains/Bullseye/GCC%2010.3.0/Raspberry%20Pi%201%2C%20Zero/cross-gcc-10.3.0-pi_0-1.tar.gz/download -O cross-pi-0.tar.gz
                   tar -xvzf cross-pi-0.tar.gz
                   ln -s cross-pi-gcc-*-0 cross-pi-gcc
+                  (set -x; ls -l "${HOME}/.local/lib/cross-pi-0/bin")
 
             - name: Configure build
               run: |
-                  PATH=$HOME/.local/lib/cross-pi-0/bin:$PATH ./configure --host=${CROSS_TRIPLE}
+                  PATH=${HOME}/.local/lib/cross-pi-0/bin:${PATH} ./configure --host=${CROSS_TRIPLE}
 
             - name: Build Crypto++
-              run: PATH=$HOME/.local/lib/cross-pi-0/bin:$PATH make cryptopp
+              run: PATH=${HOME}/.local/lib/cross-pi-0/bin:${PATH} make cryptopp
 
             - name: Save Crypto++
               id: cache-cryptopp-save
@@ -60,8 +61,8 @@ jobs:
 
             - name: Build Project
               run: |
-                  PATH=$HOME/.local/lib/cross-pi-0/bin:$PATH make src/build-number.h
-                  PATH=$HOME/.local/lib/cross-pi-0/bin:$PATH make oneway
+                  PATH=${HOME}/.local/lib/cross-pi-0/bin:${PATH} make src/build-number.h
+                  PATH=${HOME}/.local/lib/cross-pi-0/bin:${PATH} make oneway
 
             - name: Read build number from file
               id: getbuildno
