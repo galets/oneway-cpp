@@ -577,7 +577,7 @@ liboneway_la_DEPENDENCIES = cryptopp
 onewaytests_SOURCES = tests/main.cpp tests/unit-tests.cpp src/oneway.cpp src/build-number.h
 onewaytests_CPPFLAGS = -Og -Iexternal -Wno-deprecated-declarations -DTESTS ${GTEST_CFLAGS}
 onewaytests_LDFLAGS = -ggdb
-onewaytests_LDADD = -Lexternal/cryptopp -lcryptopp ${GTEST_LIBS} tests/vectors.o
+onewaytests_LDADD = -Lexternal/cryptopp -lcryptopp -lgtest ${GTEST_LIBS} tests/vectors.o
 onewaytests_DEPENDENCIES = cryptopp tests/vectors.o
 BUILT_SOURCES = tests/vectors.o src/build-number.h cryptopp
 all: $(BUILT_SOURCES)
