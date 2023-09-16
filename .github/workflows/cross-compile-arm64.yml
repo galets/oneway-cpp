@@ -33,7 +33,7 @@ jobs:
               uses: actions/cache/restore@v3
               with:
                   path: external/cryptopp
-                  key: cryptopp-${CROSS_TRIPLE}-${{ hashFiles('external/cryptopp/*.cpp', 'external/cryptopp/*.h', 'external/cryptopp-pem/*.cpp', 'external/cryptopp-pem/*.h') }}
+                  key: cryptopp-aarch64-linux-gnu-${{ hashFiles('external/cryptopp/*.cpp', 'external/cryptopp/*.h', 'external/cryptopp-pem/*.cpp', 'external/cryptopp-pem/*.h') }}
 
             - name: Set up build environment
               run: |
@@ -67,5 +67,5 @@ jobs:
 
             - uses: actions/upload-artifact@v3
               with:
-                name: oneway-v1.0.${{ steps.getbuildno.outputs.buildno }}-${{ steps.getbuildno.outputs.CROSS_TRIPLE }}
+                name: oneway-v1.0.${{ steps.getbuildno.outputs.buildno }}-linux-aarch64
                 path: oneway
