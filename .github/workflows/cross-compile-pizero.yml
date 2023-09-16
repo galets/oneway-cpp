@@ -1,0 +1,74 @@
+name: Cross Compile to Raspberry Pi Zero
+on:
+    push:
+        branches: ["master", "build-pizero"]
+        paths-ignore:
+            - src/.build-number
+    workflow_run:
+        workflows: ["Version Increment"]
+        types: ["completed"]
+
+env:
+    CROSS_TRIPLE: arm-linux-gnueabihf
+    CC: arm-linux-gnueabihf-gcc
+    CXX: arm-linux-gnueabihf-g++
+    CXXFLAGS: "-static -DCRYPTOPP_DISABLE_ARM_NEON"
+    LD: arm-linux-gnueabihf-ld
+
+jobs:
+    build:
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v3
+
+            - name: Set up submodules
+              run: |
+                  git submodule init
+                  git submodule update
+
+            - name: Restore Crypto++
+              id: cache-cryptopp
+              uses: actions/cache/restore@v3
+              with:
+                  path: external/cryptopp
+                  key: cryptopp-raspizero-${{ hashFiles('external/cryptopp/*.cpp', 'external/cryptopp/*.h', 'external/cryptopp-pem/*.cpp', 'external/cryptopp-pem/*.h') }}
+
+            - name: Set up build environment
+              run: |
+                  set -e
+                  mkdir -p $HOME/.local/lib/cross-pi-0
+                  cd $HOME/.local/lib/cross-pi-0
+                  wget https://sourceforge.net/projects/raspberry-pi-cross-compilers/files/Raspberry%20Pi%20GCC%20Cross-Compiler%20Toolchains/Bullseye/GCC%2010.3.0/Raspberry%20Pi%201%2C%20Zero/cross-gcc-10.3.0-pi_0-1.tar.gz/download -O cross-pi-0.tar.gz
+                  tar -xvzf cross-pi-0.tar.gz
+                  ln -s cross-pi-gcc-*-0 cross-pi-gcc
+
+            - name: Configure build
+              run: |
+                  PATH=$HOME/.local/lib/cross-pi-0/bin:$PATH ./configure --host=${CROSS_TRIPLE}
+
+            - name: Build Crypto++
+              run: PATH=$HOME/.local/lib/cross-pi-0/bin:$PATH make cryptopp
+
+            - name: Save Crypto++
+              id: cache-cryptopp-save
+              uses: actions/cache/save@v3
+              with:
+                  path: external/cryptopp
+                  key: ${{ steps.cache-cryptopp.outputs.cache-primary-key }}
+
+            - name: Build Project
+              run: |
+                  PATH=$HOME/.local/lib/cross-pi-0/bin:$PATH make src/build-number.h
+                  PATH=$HOME/.local/lib/cross-pi-0/bin:$PATH make oneway
+
+            - name: Read build number from file
+              id: getbuildno
+              run: |
+                  echo "buildno=$(cat src/.build-number)" >> "$GITHUB_OUTPUT"
+
+            - uses: actions/upload-artifact@v3
+              with:
+                  name: oneway-v1.0.${{ steps.getbuildno.outputs.buildno }}-linux-raspizero
+                  path: oneway
