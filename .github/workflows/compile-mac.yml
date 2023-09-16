@@ -28,6 +28,10 @@ jobs:
                   path: external/cryptopp
                   key: mac-cryptopp-${{ hashFiles('external/cryptopp/*.cpp', 'external/cryptopp/*.h', 'external/cryptopp-pem/*.cpp', 'external/cryptopp-pem/*.h') }}
 
+            - name: Set up build environment
+              run: |
+                  brew install autoconf automake libtool
+    
             - name: Configure build
               run: |
                   ./configure
