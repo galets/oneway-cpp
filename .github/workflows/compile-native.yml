@@ -54,12 +54,11 @@ jobs:
             - name: Run tests
               run: make check
 
-            - name: Make archive
-              run: |
-                BUILDNUM=$(cat src/.build-number)
-                tar -cvzf oneway-1.0.$BUILDNUM-linux.tgz oneway
+            - name: Read build number from file
+              id: getbuildno
+              run: echo "::set-output name=num::$(cat src/.build-number)"
 
             - uses: actions/upload-artifact@v3
               with:
-                name: package
-                path: oneway-1.0.*-linux.tgz
+                name: oneway-v1.0.${{ steps.getbuildno.outputs.num }}-linux
+                path: oneway
