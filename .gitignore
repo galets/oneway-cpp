@@ -9,6 +9,7 @@
 *.tar.gz
 *.trs
 *~
+.Trash-*
 aclocal.m4
 autom4te.cache
 bin
