@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <sstream>
 
 #include <cryptopp/aes.h>
 #include <cryptopp/base64.h>
