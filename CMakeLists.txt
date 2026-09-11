@@ -37,6 +37,19 @@ endif()
 set(CRYPTOPP_PEM_DIR ${cryptopp-pem_SOURCE_DIR})
 set(CRYPTOPP_STATIC_LIB ${cryptopp_SOURCE_DIR}/libcryptopp.a)
 
+# Forward the CMake (possibly cross) toolchain to Crypto++ GNUmakefile,
+# which otherwise defaults to host g++/ar.
+if(NOT CMAKE_AR)
+    set(CRYPTOPP_AR ar)
+else()
+    set(CRYPTOPP_AR ${CMAKE_AR})
+endif()
+if(NOT CMAKE_RANLIB)
+    set(CRYPTOPP_RANLIB ranlib)
+else()
+    set(CRYPTOPP_RANLIB ${CMAKE_RANLIB})
+endif()
+
 add_custom_command(
     OUTPUT  ${CRYPTOPP_STATIC_LIB}
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -47,6 +60,10 @@ add_custom_command(
             ${CRYPTOPP_PEM_DIR}/pem_write.cpp
             ${cryptopp_SOURCE_DIR}
     COMMAND ${MAKE_PROGRAM} static
+            CXX=${CMAKE_CXX_COMPILER}
+            CC=${CMAKE_C_COMPILER}
+            AR=${CRYPTOPP_AR}
+            RANLIB=${CRYPTOPP_RANLIB}
     WORKING_DIRECTORY ${cryptopp_SOURCE_DIR}
     DEPENDS ${CRYPTOPP_PEM_DIR}/pem.h
             ${CRYPTOPP_PEM_DIR}/pem_common.h
