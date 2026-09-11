@@ -21,15 +21,7 @@ FetchContent_Declare(
     SOURCE_DIR     ${CMAKE_BINARY_DIR}/cryptopp-pem
 )
 
-FetchContent_GetProperties(cryptopp)
-if(NOT cryptopp_POPULATED)
-    FetchContent_Populate(cryptopp)
-endif()
-
-FetchContent_GetProperties(cryptopp-pem)
-if(NOT cryptopp-pem_POPULATED)
-    FetchContent_Populate(cryptopp-pem)
-endif()
+FetchContent_MakeAvailable(cryptopp cryptopp-pem)
 
 # PEM pack is an add-on meant to be compiled together with Crypto++.
 # Mirror the autotools build: copy its sources into the Crypto++ tree first.
