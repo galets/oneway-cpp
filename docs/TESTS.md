@@ -4,7 +4,7 @@ Two suites, both wired into CTest:
 
 - `unit`: gtest binary `onewaytests` (`tests/main.cpp`,
   `tests/unit-tests.cpp`). Vectors from `tests/test-vectors/*`
-  embedded via `ld -r -b binary` into `vectors.o`.
+  read at runtime via `TEST_VECTORS_DIR`.
 - `invoke`: `tests/general-invoke.sh` round-trip on built `oneway`
   binary. Uses `$PRG` (`PRG=${PRG:-./oneway}`); CTest sets
   `PRG=$<TARGET_FILE:oneway>`.

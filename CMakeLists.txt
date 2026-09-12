@@ -31,15 +31,39 @@ set(CRYPTOPP_STATIC_LIB ${cryptopp_SOURCE_DIR}/libcryptopp.a)
 
 # Forward the CMake (possibly cross) toolchain to Crypto++ GNUmakefile,
 # which otherwise defaults to host g++/ar.
-if(NOT CMAKE_AR)
-    set(CRYPTOPP_AR ar)
-else()
-    set(CRYPTOPP_AR ${CMAKE_AR})
+# On Apple the makefile picks libtool itself; overriding AR with
+# BSD ar breaks the build.
+set(_CRYPTOPP_ARCH_FLAGS "")
+foreach(_ARCH IN LISTS CMAKE_OSX_ARCHITECTURES)
+    string(APPEND _CRYPTOPP_ARCH_FLAGS " -arch ${_ARCH}")
+endforeach()
+if(CMAKE_OSX_SYSROOT)
+    string(APPEND _CRYPTOPP_ARCH_FLAGS " -isysroot ${CMAKE_OSX_SYSROOT}")
 endif()
-if(NOT CMAKE_RANLIB)
-    set(CRYPTOPP_RANLIB ranlib)
-else()
-    set(CRYPTOPP_RANLIB ${CMAKE_RANLIB})
+set(CRYPTOPP_MAKE_ARGS CXX=${CMAKE_CXX_COMPILER}${_CRYPTOPP_ARCH_FLAGS} CC=${CMAKE_C_COMPILER}${_CRYPTOPP_ARCH_FLAGS})
+if(NOT APPLE)
+    if(NOT CMAKE_AR)
+        list(APPEND CRYPTOPP_MAKE_ARGS AR=ar)
+    else()
+        list(APPEND CRYPTOPP_MAKE_ARGS AR=${CMAKE_AR})
+    endif()
+    if(NOT CMAKE_RANLIB)
+        list(APPEND CRYPTOPP_MAKE_ARGS RANLIB=ranlib)
+    else()
+        list(APPEND CRYPTOPP_MAKE_ARGS RANLIB=${CMAKE_RANLIB})
+    endif()
+endif()
+
+# Crypto++ GNUmakefile ignores CMAKE_OSX_ARCHITECTURES and
+# detects the target from CXXFLAGS (Clang -dumpmachine reports
+# the host). Forward -arch via CXXFLAGS/LDFLAGS. Explicit base
+# flags preserve -O3 without -march=native, which would target
+# the host CPU on cross builds.
+if(_CRYPTOPP_ARCH_FLAGS)
+    string(STRIP "${_CRYPTOPP_ARCH_FLAGS}" _CRYPTOPP_ARCH_FLAGS)
+    list(APPEND CRYPTOPP_MAKE_ARGS
+        "CXXFLAGS=-DNDEBUG -g2 -O3 -fPIC ${_CRYPTOPP_ARCH_FLAGS}"
+        "LDFLAGS=${_CRYPTOPP_ARCH_FLAGS}")
 endif()
 
 add_custom_command(
@@ -51,11 +75,7 @@ add_custom_command(
             ${CRYPTOPP_PEM_DIR}/pem_read.cpp
             ${CRYPTOPP_PEM_DIR}/pem_write.cpp
             ${cryptopp_SOURCE_DIR}
-    COMMAND ${MAKE_PROGRAM} static
-            CXX=${CMAKE_CXX_COMPILER}
-            CC=${CMAKE_C_COMPILER}
-            AR=${CRYPTOPP_AR}
-            RANLIB=${CRYPTOPP_RANLIB}
+    COMMAND ${MAKE_PROGRAM} static ${CRYPTOPP_MAKE_ARGS}
     WORKING_DIRECTORY ${cryptopp_SOURCE_DIR}
     DEPENDS ${CRYPTOPP_PEM_DIR}/pem.h
             ${CRYPTOPP_PEM_DIR}/pem_common.h
@@ -91,8 +111,7 @@ target_link_libraries(oneway PRIVATE cryptopp)
 add_dependencies(oneway cryptopp-build)
 
 # Tests: gtest unit suite + shell round-trip.
-# Skipped for Windows cross builds: vectors.o uses
-# ld -r -b binary (ELF-only) and gtest needs extra
+# Skipped for Windows cross builds: gtest needs extra
 # mingw threading flags.
 if(NOT MINGW)
   include(CTest)
@@ -106,31 +125,12 @@ if(NOT GTest_FOUND)
     FetchContent_MakeAvailable(googletest)
 endif()
 
-# Embed test vectors as binary blob (replaces old ld rule).
-# Run ld from source root so symbol names stay
-# _binary_tests_test_vectors_legacy_* (unit-tests.cpp depends on them).
-file(GLOB TEST_VECTOR_PATHS ${CMAKE_SOURCE_DIR}/tests/test-vectors/*)
-set(TEST_VECTOR_REL "")
-foreach(p ${TEST_VECTOR_PATHS})
-    file(RELATIVE_PATH r ${CMAKE_SOURCE_DIR} ${p})
-    list(APPEND TEST_VECTOR_REL ${r})
-endforeach()
-set(VECTORS_OBJ ${CMAKE_BINARY_DIR}/vectors.o)
-add_custom_command(
-    OUTPUT ${VECTORS_OBJ}
-    COMMAND ${CMAKE_LINKER} -r -b binary -o ${VECTORS_OBJ} ${TEST_VECTOR_REL}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    DEPENDS ${TEST_VECTOR_PATHS}
-    COMMENT "Embedding test vectors"
-    VERBATIM
-)
-add_custom_target(vectors DEPENDS ${VECTORS_OBJ})
-
-add_executable(onewaytests tests/main.cpp tests/unit-tests.cpp src/oneway.cpp ${VECTORS_OBJ})
+add_executable(onewaytests tests/main.cpp tests/unit-tests.cpp src/oneway.cpp)
+target_compile_definitions(onewaytests PRIVATE TEST_VECTORS_DIR="${CMAKE_SOURCE_DIR}/tests/test-vectors")
 target_include_directories(onewaytests PRIVATE ${GENERATED_DIR} ${CMAKE_BINARY_DIR})
 target_compile_options(onewaytests PRIVATE -Wno-deprecated-declarations)
 target_link_libraries(onewaytests PRIVATE cryptopp GTest::gtest)
-add_dependencies(onewaytests cryptopp-build vectors)
+add_dependencies(onewaytests cryptopp-build)
 
   add_test(NAME unit COMMAND onewaytests)
   add_test(NAME invoke COMMAND ${CMAKE_SOURCE_DIR}/tests/general-invoke.sh)

@@ -1,34 +1,29 @@
 #include "gtest/gtest.h"
 #include "../src/oneway.h"
 
-#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
 
-// Following entries generated using following command:
-/*
-nm -g tests/vectors.o | awk '{
-    if($3 ~ /_start$/ || $3 ~ /_end$/) {
-        print "extern char "$3"[];"
+// Reads tests/test-vectors/<name> at runtime.
+static std::string vec(const char* name)
+{
+    std::ifstream f(std::string(TEST_VECTORS_DIR) + "/" + name, std::ios::binary);
+
+    if (!f) {
+        throw std::runtime_error(name);
     }
-}' | sort
 
-*/
+    std::ostringstream ss;
+    ss << f.rdbuf();
 
-extern char _binary_tests_test_vectors_legacy_ciphertext1_1w_end[];
-extern char _binary_tests_test_vectors_legacy_ciphertext1_1w_start[];
-extern char _binary_tests_test_vectors_legacy_key1_key_end[];
-extern char _binary_tests_test_vectors_legacy_key1_key_start[];
-extern char _binary_tests_test_vectors_legacy_key1_pub_end[];
-extern char _binary_tests_test_vectors_legacy_key1_pub_start[];
-extern char _binary_tests_test_vectors_legacy_plaintext1_txt_end[];
-extern char _binary_tests_test_vectors_legacy_plaintext1_txt_start[];
-
-#define VECTORSTR(x) std::string(x##_start, x##_end - x##_start)
-#define VECTORBIN(x) std::vector<char>(x##_start, x##_end - x##_start)
+    return ss.str();
+}
 
 TEST(PEM, ConvertPrivateKey)
 {
-    auto privateKey = VECTORSTR(_binary_tests_test_vectors_legacy_key1_key);
-    auto publicKey = VECTORSTR(_binary_tests_test_vectors_legacy_key1_pub);
+    auto privateKey = vec("legacy-key1.key");
+    auto publicKey = vec("legacy-key1.pub");
 
     std::stringstream in(privateKey);
     std::stringstream out;
@@ -40,9 +35,9 @@ TEST(PEM, ConvertPrivateKey)
 
 TEST(PEM, Decrypt)
 {
-    auto privateKey = VECTORSTR(_binary_tests_test_vectors_legacy_key1_key);
-    auto cipherText = VECTORSTR(_binary_tests_test_vectors_legacy_ciphertext1_1w);
-    auto plainText = VECTORSTR(_binary_tests_test_vectors_legacy_plaintext1_txt);
+    auto privateKey = vec("legacy-key1.key");
+    auto cipherText = vec("legacy-ciphertext1.1w");
+    auto plainText = vec("legacy-plaintext1.txt");
 
     std::stringstream inKey(privateKey);
     std::stringstream in(cipherText);
