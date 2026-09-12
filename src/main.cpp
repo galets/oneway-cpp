@@ -123,7 +123,7 @@ int main(int argc, char **argv)
 
         else
         {
-            cerr << "One way encryptor (c) 2014,2023 by galets, https://github.com/galets/oneway-cpp, version " << VERSION << "." << BUILD_NUMBER << endl;
+            cerr << "One way encryptor (c) 2014,2023,2026 by galets, https://github.com/galets/oneway-cpp, version " << VERSION << "." << BUILD_NUMBER << endl;
             cerr << "Usage:" << endl;
             cerr << "   oneway --genkey private.key" << endl;
             cerr << "   oneway --publickey [private.key [public.key]]" << endl;
