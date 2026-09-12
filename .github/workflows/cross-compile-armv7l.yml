@@ -1,7 +1,7 @@
-name: Cross Compile to ARM64
+name: Cross Compile to armv7l (32 bit)
 on:
     push:
-        branches: ["master"]
+        branches: ["master", "build-pizero"]
         paths-ignore:
             - src/.build-number
     workflow_run:
@@ -9,7 +9,7 @@ on:
         types: ["completed"]
 
 env:
-    CROSS_TRIPLE: aarch64-linux-gnu
+    CROSS_TRIPLE: arm-linux-gnueabihf
 
 jobs:
     build:
@@ -24,16 +24,16 @@ jobs:
             - name: Set up build environment
               run: |
                   sudo apt-get update
-                  sudo apt-get install -y build-essential cmake libgtest-dev binutils-aarch64-linux-gnu g++-aarch64-linux-gnu
+                  sudo apt-get install -y build-essential cmake libgtest-dev binutils-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 
             - name: Configure
               run: |
                   cmake -S . -B build \
                     -DCMAKE_SYSTEM_NAME=Linux \
-                    -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+                    -DCMAKE_SYSTEM_PROCESSOR=arm \
                     -DCMAKE_C_COMPILER=${CROSS_TRIPLE}-gcc \
                     -DCMAKE_CXX_COMPILER=${CROSS_TRIPLE}-g++ \
-                    -DCMAKE_CXX_FLAGS="-static"
+                    -DCMAKE_CXX_FLAGS="-static -DCRYPTOPP_DISABLE_ARM_NEON"
 
             - name: Build
               run: cmake --build build
@@ -41,9 +41,9 @@ jobs:
             - name: Read build number from file
               id: getbuildno
               run: |
-                echo "buildno=$(cat src/.build-number)" >> "$GITHUB_OUTPUT"
+                  echo "buildno=$(cat src/.build-number)" >> "$GITHUB_OUTPUT"
 
             - uses: actions/upload-artifact@v4
               with:
-                name: oneway-v1.1.${{ steps.getbuildno.outputs.buildno }}-linux-aarch64
+                name: oneway-v1.1.${{ steps.getbuildno.outputs.buildno }}-armv7l
                 path: build/oneway

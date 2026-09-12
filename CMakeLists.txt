@@ -91,7 +91,11 @@ target_link_libraries(oneway PRIVATE cryptopp)
 add_dependencies(oneway cryptopp-build)
 
 # Tests: gtest unit suite + shell round-trip.
-include(CTest)
+# Skipped for Windows cross builds: vectors.o uses
+# ld -r -b binary (ELF-only) and gtest needs extra
+# mingw threading flags.
+if(NOT MINGW)
+  include(CTest)
 find_package(GTest QUIET)
 if(NOT GTest_FOUND)
     FetchContent_Declare(
@@ -128,6 +132,7 @@ target_compile_options(onewaytests PRIVATE -Wno-deprecated-declarations)
 target_link_libraries(onewaytests PRIVATE cryptopp GTest::gtest)
 add_dependencies(onewaytests cryptopp-build vectors)
 
-add_test(NAME unit COMMAND onewaytests)
-add_test(NAME invoke COMMAND ${CMAKE_SOURCE_DIR}/tests/general-invoke.sh)
-set_tests_properties(invoke PROPERTIES ENVIRONMENT "PRG=$<TARGET_FILE:oneway>")
+  add_test(NAME unit COMMAND onewaytests)
+  add_test(NAME invoke COMMAND ${CMAKE_SOURCE_DIR}/tests/general-invoke.sh)
+  set_tests_properties(invoke PROPERTIES ENVIRONMENT "PRG=$<TARGET_FILE:oneway>")
+endif()
