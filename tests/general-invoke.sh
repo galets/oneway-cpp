@@ -17,7 +17,7 @@ function compare() {
 	fi
 }
 
-PRG=./oneway
+PRG=${PRG:-./oneway}
 TMP=${TMP:-/tmp}
 
 for BS in `seq 1 17 105`

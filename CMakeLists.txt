@@ -89,3 +89,45 @@ target_include_directories(oneway PRIVATE ${GENERATED_DIR} ${CMAKE_BINARY_DIR})
 target_compile_options(oneway PRIVATE -Wno-deprecated-declarations)
 target_link_libraries(oneway PRIVATE cryptopp)
 add_dependencies(oneway cryptopp-build)
+
+# Tests: gtest unit suite + shell round-trip.
+include(CTest)
+find_package(GTest QUIET)
+if(NOT GTest_FOUND)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest
+        GIT_TAG v1.14.0
+    )
+    FetchContent_MakeAvailable(googletest)
+endif()
+
+# Embed test vectors as binary blob (replaces old ld rule).
+# Run ld from source root so symbol names stay
+# _binary_tests_test_vectors_legacy_* (unit-tests.cpp depends on them).
+file(GLOB TEST_VECTOR_PATHS ${CMAKE_SOURCE_DIR}/tests/test-vectors/*)
+set(TEST_VECTOR_REL "")
+foreach(p ${TEST_VECTOR_PATHS})
+    file(RELATIVE_PATH r ${CMAKE_SOURCE_DIR} ${p})
+    list(APPEND TEST_VECTOR_REL ${r})
+endforeach()
+set(VECTORS_OBJ ${CMAKE_BINARY_DIR}/vectors.o)
+add_custom_command(
+    OUTPUT ${VECTORS_OBJ}
+    COMMAND ${CMAKE_LINKER} -r -b binary -o ${VECTORS_OBJ} ${TEST_VECTOR_REL}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    DEPENDS ${TEST_VECTOR_PATHS}
+    COMMENT "Embedding test vectors"
+    VERBATIM
+)
+add_custom_target(vectors DEPENDS ${VECTORS_OBJ})
+
+add_executable(onewaytests tests/main.cpp tests/unit-tests.cpp src/oneway.cpp ${VECTORS_OBJ})
+target_include_directories(onewaytests PRIVATE ${GENERATED_DIR} ${CMAKE_BINARY_DIR})
+target_compile_options(onewaytests PRIVATE -Wno-deprecated-declarations)
+target_link_libraries(onewaytests PRIVATE cryptopp GTest::gtest)
+add_dependencies(onewaytests cryptopp-build vectors)
+
+add_test(NAME unit COMMAND onewaytests)
+add_test(NAME invoke COMMAND ${CMAKE_SOURCE_DIR}/tests/general-invoke.sh)
+set_tests_properties(invoke PROPERTIES ENVIRONMENT "PRG=$<TARGET_FILE:oneway>")
